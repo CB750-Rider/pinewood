@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: pinewood
+Version: 0.0.1
+Summary: An application suite for running pinewood derby races.
+Home-page: https://github.com/CB750-Rider/pinewood
+Author: Dr. Lee Burchett
+Author-email: lee.r.burchett@gmail.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Apache License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

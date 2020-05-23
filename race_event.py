@@ -212,7 +212,7 @@ class Event:
                 self.race_log_file.write(",NA\n");
         race.save_results(self.current_race_log_idx, times, counts)
         if accept:
-            self.accept_resuts()
+            self.accept_results()
         self.current_race_log_idx += 1
 
     def print_status_report(self, fname):

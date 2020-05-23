@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 """
 rm_gui.py
 
@@ -28,7 +27,7 @@ import tkinter as tk
 from tkinter import filedialog
 import time
 import select
-from race_manager.DerbyTimer import Race_Event
+from race_event import Event
 
 host = ['', '', '', '']
 port = [0, 0, 0, 0]
@@ -534,13 +533,14 @@ def generate_report():
         filetypes=(("Comma-Seperated Variable", "*.csv"),
                    ("Text", "*.txt"),
                    ("All Files", "*.*")))
-    rv = event.print_status_report(report_file_name)
-    if (rv == 0):
-        di = tk.Toplevel()
-        m = tk.Label(di, text="File Written.", height=6, width=24)
-        m.pack()
-        di.protocol("WM_DELETE_WINDOW", di.destroy)
-        di.update()
+    if len(report_file_name) > 0:
+        rv = event.print_status_report(report_file_name)
+        if rv == 0:
+            di = tk.Toplevel()
+            m = tk.Label(di, text="File Written.", height=6, width=24)
+            m.pack()
+            di.protocol("WM_DELETE_WINDOW", di.destroy)
+            di.update()
 
 
 def goto_prev_race():
@@ -737,7 +737,7 @@ if __name__ == "__main__":
 
     set_host_and_port()
 
-    event = Race_Event.event(eventfile, logfile)
+    event = Event(eventfile, logfile)
 
     initialize_window(event)
 
