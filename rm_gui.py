@@ -28,6 +28,17 @@ from tkinter import filedialog
 import time
 import select
 from race_event import Event
+import argparse
+
+description = "A Graphical Interface for managing Pinewood Derby Races"
+
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument('--hosts_file', help='A file with the ip and port addresses of the lane timers (hosts).',
+                    default='lane_hosts.csv')
+parser.add_argument('--event_file', help='A file with the event plan listed.',
+                    default='RacePlan.csv')
+parser.add_argument('--log_file', help='The name of a file to save race times to.',
+                    default='derby_race_log.csv')
 
 host = ['', '', '', '']
 port = [0, 0, 0, 0]
@@ -51,9 +62,6 @@ status_indicators = [[], [], [], []]
 widths = {"Times Column": 450,
           "Race Column": 350,
           "Top Spacer": 33}
-hostsfile = "lane_hosts.csv"
-logfile = "derby_race_log.csv"
-eventfile = "RacePlan.csv"
 race_ready = [False, False, False, False]  # "Yellow LED"
 race_complete = [True, True, True, True]
 race_running = [False, False, False, False]  # "Green LED"
@@ -547,7 +555,7 @@ def goto_prev_race():
     global event, race_needs_written
     if race_needs_written:
         record_race_results(accept=True)
-        race_needs_written=False
+        race_needs_written = False
     event.goto_prev_race()
     update_race_selector(True)
     if event.current_race.accepted_result_idx >= 0:
@@ -560,7 +568,7 @@ def goto_next_race():
     global event, race_needs_written
     if race_needs_written:
         record_race_results(accept=True)
-        race_needs_written=False
+        race_needs_written = False
     event.goto_next_race()
     update_race_selector(True)
     if event.current_race.accepted_result_idx >= 0:
@@ -646,9 +654,10 @@ def record_race_results(accept=False):
 
 
 # Socket Stuff
-def set_host_and_port():
-    global hostsfile, host, port
-    with open(hostsfile) as fp:
+def set_host_and_port(hosts_file):
+    global host, port
+    # TODO Add YAML parser
+    with open(hosts_file) as fp:
         for line in fp:
             laneNumber, hostAddress, hostPort = line.split(',')
             li = int(laneNumber) - 1
@@ -708,36 +717,18 @@ def send_reset_to_track(lane=reset_default_lane, accept=False):
     s[lane].sendall("<reset>".encode('utf-8'))
 
 
-def get_data_from_socket(sckt):
-    data = sckt.recv(64)
-    return data
+def get_data_from_socket(open_socket):
+    socket_data = open_socket.recv(64)
+    return socket_data
 
 
 if __name__ == "__main__":
     post_placements = True
-    if len(sys.argv) == 1:
-        print("""Using the hosts in {}, the event in {}, and outputing to
-              {}.""".format(hostsfile, eventfile, logfile))
-        print("""Pass a hosts file, event file and log file name (in that order) if you would 
-              like to use different files.""")
-    elif len(sys.argv) == 2:
-        hostsfile = sys.argv[1]
-    elif len(sys.argv) == 3:
-        hostsfile = sys.argv[1]
-        eventfile = sys.argv[2]
-    elif len(sys.argv) == 4:
-        hostsfile = sys.argv[1]
-        eventfile = sys.argv[2]
-        logfile = sys.argv[3]
-    else:
-        hostsfile = sys.argv[1]
-        eventfile = sys.argv[2]
-        logfile = sys.argv[3]
-        print("Only the first three arguments are used")
+    cli_args = parser.parse_args()
 
-    set_host_and_port()
+    set_host_and_port(cli_args.hosts_file)
 
-    event = Event(eventfile, logfile)
+    event = Event(cli_args.event_file, cli_args.log_file)
 
     initialize_window(event)
 
@@ -749,7 +740,7 @@ if __name__ == "__main__":
     while program_running:
         "Waiting for data from track hosts."
         ready_sockets, open_sockets, error_sockets = select.select(s, s, s, 0.05)
-        open_conn=[4]
+        open_conn = [4]
         if len(open_sockets) != 4:
             print("Socket disconnection detected.")
             for i in range(4):
@@ -757,16 +748,16 @@ if __name__ == "__main__":
                     open_conn[i] = True
                 else:
                     open_conn[i] = False
-                    print("Dissconnnect on socket {}".format(i))
+                    print("Disconnect on socket {}".format(i))
             update_race_display(new_race=False)
             connect_to_track_hosts()
-        for sckt in ready_sockets:
-            data = get_data_from_socket(sckt)
+        for ready_socket in ready_sockets:
+            data = get_data_from_socket(ready_socket)
             s_idx = -1
             for i, sc in enumerate(s):
-                if sckt == sc:
+                if ready_socket == sc:
                     s_idx = i
-            if (s_idx == -1):
+            if s_idx == -1:
                 print("Unable to determine which socket has data")
                 raise SystemExit
             if 'Ready to Race'.encode('utf-8') in data:
@@ -787,7 +778,7 @@ if __name__ == "__main__":
                 post_placements = True
             elif 'GO!'.encode('utf-8') in data:
                 race_needs_written = True
-                active_race_idx = event.current_race_log_idx # Force a jump to the new race when started
+                active_race_idx = event.current_race_log_idx  # Force a jump to the new race when started
                 update_race_selector(show_accepted_race=False)
                 update_race_display(new_race=True)
                 print("Track {} racing!".format(s_idx + 1))
