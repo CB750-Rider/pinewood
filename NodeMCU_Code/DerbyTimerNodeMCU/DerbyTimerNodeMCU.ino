@@ -52,16 +52,18 @@ limitations under the License.
  *  D12 = 9
 http://www.electronicwings.com/nodemcu/nodemcu-gpio-with-arduino-ide */
 #define COUNT 14 // Counter Input
-#define RESET_IN 12 // Reset Input
-#define RESET_OUT 4 // Reset Output
+#define RESET_IN 12 // Track Reset Input
+#define RESET_OUT 4 // Track Reset Output
 #define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 #define OLED_CLK 1 // I2C Clock
 #define OLED_SDA 3 // I2C Data 
 #define STRLEN 257
-#define LOOP_DELAY 25 // in ms. This should be long enough that several 
+#define LOOP_DELAY 25 // in ms. This should be long enough that several pulses arrive
 #define LED_PIN 16 // For debug
 #define RACING_RATE 12 // Smaller number = faster flash
 #define STANDBY_RATE 60 // Smaller number = faster flash
+#define POWER_OUT 2 // Turns off the input power when low
+#define USER_INPUT 5 // User input through power button
 
 
 /* OLED Controls
@@ -86,6 +88,7 @@ const double clock_rate = 1000; /* In Hz */
 const int port = MY_PORT;
 int i;
 int current_rate = STANDBY_RATE;
+int press_count = 0;
 
 WiFiServer wifiServer(port);
 WiFiClient wifiClient;
@@ -100,7 +103,7 @@ void reset_rx();
 void setup() {
   byte mac[6];
   byte ip[] = MY_IP;
-  byte subnet[] = MP_SUBNET};
+  byte subnet[] = MY_SUBNET;
   byte gateway[] = MY_GATEWAY;
   mDisconnectHandler = WiFi.onStationModeDisconnected(on_wifi_disconnected);
 
@@ -109,10 +112,13 @@ void setup() {
   Wire.begin(OLED_SDA,OLED_CLK);
   
   /* Prepare pin interfaces. */
+  pinMode(POWER_OUT, OUTPUT);
+  digitalWrite(POWER_OUT, HIGH);
   pinMode(COUNT,INPUT_PULLUP);
   pinMode(RESET_IN,INPUT_PULLUP);
   pinMode(RESET_OUT,OUTPUT);
   digitalWrite(RESET_OUT,LOW);
+  pinMode(USER_INPUT, INPUT_PULLUP);
   pinMode(LED_PIN,OUTPUT);
   attachInterrupt(digitalPinToInterrupt(COUNT), count, CHANGE);
 
@@ -150,6 +156,10 @@ void setup() {
   
   wifiServer.begin();
   race_set();   
+}
+
+void cut_power(){
+  digitalWrite(POWER_OUT,LOW);
 }
 
 void ICACHE_RAM_ATTR count(){
@@ -351,9 +361,7 @@ void handle_new_client(){
 /* WIFI SERVER SECTION */
 
 void loop() {
-  
-  digitalWrite(LED_PIN,(i%current_rate)!=0);
-  
+   
   if(wifiServer.hasClient()){
     handle_new_client();
   }
@@ -375,6 +383,40 @@ void loop() {
 
   /* Check for any data that was sent so we clear the buffer. */
   check_client_data();
+
+  if(!digitalRead(USER_INPUT)){
+    press_count ++;
+    switch(press_count){
+      case 1: /* Reset the track */
+        if(!reset_pressed)
+          reset_rx();
+          break;
+      case 10: /* Three slow and three fast blinks */
+      case 50:
+      case 90:
+      case 130:
+      case 140:
+      case 150:
+        digitalWrite(LED_PIN,1);
+        break;
+      case 40:
+      case 80:
+      case 120:
+      case 135:       
+      case 145:
+        digitalWrite(LED_PIN,0);
+        break;
+      case 155: /* Final blink, shutdown */
+        digitalWrite(LED_PIN,0);
+        cut_power();
+      default:
+        break;        
+    }
+  }
+  else{
+    press_count = 0;
+    digitalWrite(LED_PIN,(i%current_rate)!=0);
+  }
 
   i++;
   

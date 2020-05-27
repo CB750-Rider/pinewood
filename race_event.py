@@ -34,21 +34,83 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import numpy as np
+import yaml
+
+default_heat_name = "No_Heat"
 
 
 # CLASS STUFF
 class Racer:
-    def __init__(self, name, rank):
+    global default_heat_name
+
+    def __init__(self,
+                 name="No_Name",
+                 rank="No_Rank",
+                 heat_name=default_heat_name,
+                 heat_index=-1,
+                 n_lanes=4,
+                 car_status=None):
         self.name = name
         self.rank = rank
-        self.race_times = np.zeros(4)
-        self.race_counts = np.zeros(4)
-        self.race_plan_nums = np.zeros(4)
-        self.race_log_nums = np.zeros(4)
-        self.race_positions = np.zeros(4)
+        self.n_lanes = n_lanes
+        self.heat_name = heat_name
+        self.index_in_heat = heat_index
+        self.race_times = np.zeros(self.n_lanes)
+        self.race_counts = np.zeros(self.n_lanes)
+        self.race_plan_nums = np.zeros(self.n_lanes)
+        self.race_log_nums = np.zeros(self.n_lanes)
+        self.race_positions = np.zeros(self.n_lanes)
         self.hist = {}
-        self.heat_name = "Heat0"
-        self.heat_index = 0
+        if car_status is None:
+            self.car_status = {
+                'passed_weight': False,
+                'weight': 0.0,
+                'passed_length': False,
+                'passed_height': False,
+                'passed_underbody_clearance': False,
+                'passed_width': False,
+                'passed_nose': False,
+                'passed_wheels': False,
+                'notes': ''
+            }
+        else:
+            self.car_status = car_status
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'rank': self.rank,
+            'race_times': self.race_times,
+            'race_counts': self.race_counts,
+            'race_plan_nums': self.race_plan_nums,
+            'race_log_nums': self.race_log_nums,
+            'race_positions': self.race_positions,
+            'heat_name': self.heat_name,
+            'heat_index': self.heat_index,
+            'car_status': self.car_status
+        }
+
+    def from_dict(self, dict):
+        if 'name' in dict.keys():
+            self.name = dict['name']
+        if 'rank' in dict.keys():
+            self.rank = dict['rank']
+        if 'race_times' in dict.keys():
+            self.race_times = dict['race_times']
+        if 'race_counts' in dict.keys():
+            self.race_counts = dict['race_counts']
+        if 'race_plan_nums' in dict.keys():
+            self.race_plan_nums = dict['race_plan_nums']
+        if 'race_log_nums' in dict.keys():
+            self.race_log_nums = dict['race_log_nums']
+        if 'race_positions' in dict.keys():
+            self.race_positions = dict['race_positions']
+        if 'heat_name' in dict.keys():
+            self.heat_name = dict['heat_name']
+        if 'heat_index' in dict.keys():
+            self.index_in_heat = dict['heat_index']
+        if 'car_status' in dict.keys():
+            self.car_status = dict['car_status']
 
     def chip(self):
         chip = {"text": "{}:{}".format(self.name, self.heat_name), "font": ("Serif", 16)}
@@ -89,21 +151,45 @@ class Racer:
     def clear_races(self):
         if self.get_worst() > 0.0:
             self.save_heat()
-        self.race_times = np.zeros(4)
-        self.race_log_nums = np.zeros(4)
-        self.race_plan_nums = np.zeros(4)
-        self.race_positions = np.zeros(4)
+        self.race_times = np.zeros(self.n_lanes)
+        self.race_log_nums = np.zeros(self.n_lanes)
+        self.race_plan_nums = np.zeros(self.n_lanes)
+        self.race_positions = np.zeros(self.n_lanes)
 
 
 class Heat:
-    def __init__(self, name, racers, racer_names):
+    def __init__(self,
+                 name=default_heat_name,
+                 racers=[],
+                 ability_rank=-1):
         self.name = name
         self.racers = racers
-        self.racer_names = racer_names
         for ri, racer in enumerate(racers):
             racer.set_heat(name, ri)
-        self.races = []
-        self.current_race_idx = 0
+        # self.races = []
+        self.ability_rank = ability_rank
+
+    def add_racer(self, racer):
+        if racer.heat_name != self.name:
+            raise Exception(ValueError, "Unable to add a racer to {} because their heat is {}".format(
+                self.name, racer.heat_name
+            ))
+        idx = len(self.racers)
+        self.racers.append(racer)
+        racer.set_heat(self.name, idx)
+
+    def to_dict(self):
+        racers = []
+        for racer in self.racers:
+            racers.append({
+                'name': racer.name,
+                'rank': racer.rank
+            })
+        return {
+            'name': self.name,
+            'racers': racers,
+            'ability_rank': self.ability_rank
+        }
 
     def add_race(self, racers, race_idx):
         # Racers are expected to be in order of lane number
@@ -112,8 +198,8 @@ class Heat:
                     "Times": self.times}
         self.races.insert(race_idx, new_race)
 
-    def set_current_race_idx(self, idx):
-        self.current_race_idx = idx
+    #   def set_current_race_idx(self, idx):
+    #       self.current_race_idx = idx
 
     def get_ranks(self):
         times = []
@@ -125,25 +211,26 @@ class Heat:
         idx = np.argsort(times)
         return names[idx], times[idx]
 
-    def swap_racer(self, old_racer, new_racer):
+    """def swap_racer(self, old_racer, new_racer):
         for i in range(len(self.racers)):
             if self.racers[i] == old_racer:
                 self.racers[i] = new_racer
-                self.racers[i].set_heat(self.name, new_racer.heat_index + 1)
+                self.racers[i].set_heat(self.name, new_racer.heat_index + 1)"""
 
 
 class Race:
-    def __init__(self, heats, racers, number, is_empty):
-        self.heats = heats  # 1 x 4
-        self.racers = racers  # 1 x 4
+    def __init__(self, heats, racers, number, is_empty, n_lanes=4):
+        self.heats = heats  # 1 x n_lanes
+        self.racers = racers  # 1 x n_lanes
         self.plan_number = number  # The number from the race plan
         self.race_number = []  # The race number(s) from the track recorder
         self.times = []
         self.counts = []
         self.placements = []
         self.current_race = 0
-        self.is_empty = is_empty  # 1 x 4
+        self.is_empty = is_empty  # 1 x n_lanes
         self.accepted_result_idx = -1  # The index of the race result that
+        self.n_lanes = n_lanes
         # was accepted or -1 if none have been.
 
     def get_placements(self, times):
@@ -168,33 +255,155 @@ class Race:
     def post_results_to_racers(self, i=-1):
         if i < 0:
             i = self.current_race
-        for lane_idx, racer, time, count, placement in zip(range(4), self.racers,
+        for lane_idx, racer, time, count, placement in zip(range(self.n_lanes), self.racers,
                                                            self.times[i], self.counts[i], self.placements[i]):
             racer.post_result(lane_idx, self.race_number[i], self.plan_number,
                               time, count, placement)
         self.accepted_result_idx = i
 
+    def to_dict(self):
+        entries = []
+        for heat, racer, is_empty in zip(self.heats, self.racers, self.is_empty):
+            entries.append({'racer': racer.name,
+                            'heat': heat.name,
+                            'empty_lane': is_empty})
+        if self.accepted_result_idx < 0:
+            out = {'planned_number': self.plan_number,
+                   'entries': entries,
+                   'accepted_result_idx': self.accepted_result_idx}
+        else:
+            self.set_current_race(self.accepted_result_idx)
+            out = {'planned_number': self.plan_number,
+                   'entries': entries,
+                   'accepted_result_idx': self.accepted_result_idx,
+                   'times': self.times,
+                   'counts': self.counts,
+                   'index_of_race(s)_in_log': self.race_number,
+                   'placements': self.placements}
+        return out
+
 
 class Event:
-    def __init__(self, event_file, logfile):
-        self.heats, self.races, self.heat_names = load_races_from_file(
-            event_file)
+    def __init__(self,
+                 event_file=None,
+                 log_file=None,
+                 n_lanes=4,
+                 verbose=False):
+        self.verbose = verbose
+        self.n_lanes = n_lanes
+
+        # Load the race data
+        self.heats = [self.create_empty_lane_heat(), ]
+        self.races = []
+        self.current_race = None
         self.current_race_idx = 0  # Race plan race number
-        self.current_race_log_idx = 0  # The index in the log
-        self.n_lanes = 4
+        self.last_race = 0
+        self.plan_dictionary = None
+        if event_file is not None:
+            self.event_file_name = event_file
+            self.load_races_from_file(event_file)
+
+        # Load the log file that gives what part of the race has
+        # already run
+        # TODO Check the log file to make sure it matches the plan
+        self.race_log_file = None
+        if log_file is not None:
+            self.read_log_file(log_file)
+
+            # we will be recording race data as it comes in, so open
+            # the logfile for appending.
+            try:
+                self.race_log_file = open(log_file, "a+")
+            except OSError:
+                print("Unable to open {} for writing.")
+                pass
+        if self.race_log_file is None:
+            decision = input("Attempt to use the default log file? [Y/n]")
+            if 'n' or 'N' in decision:
+                try:
+                    self.race_log_file = open("log_file.yaml", "a+")
+                except OSError:
+                    print("Unable to open {} for writing.".format("log_file.yaml"))
+                    raise
+            else:
+                decision = input("Continue without logging? [y/N]")
+                if 'y' or 'Y' in decision:
+                    print("Continuing on.")
+                    self .race_log_file = open("/dev/null", "w")
+                else:
+                    raise ValueError
+
+    def create_empty_lane_heat(self,
+                               ability_rank=100000000000000):
+        racer_names = ["empty {}".format(i + 1) for i in range(self.n_lanes)]
+        racers = [Racer(name=x, heat_name="Empty") for x in racer_names]
+        return Heat(name="Empty",
+                    racers=racers,
+                    ability_rank=ability_rank)
+
+    def load_races_from_file(self, file_name):
+        try:
+            f = open(file_name)
+        except FileNotFoundError:
+            print("Unable to open {} for reading.")
+            return
+
+        if '.yaml' in file_name:
+            self.load_races_from_yaml(file_name)
+
+        with open(file_name) as infile:
+            for line in infile:
+                if 'Heat' in line:
+                    self.add_heat(create_heat_from_line(line))
+            if self.verbose:
+                self.print_heats()
+            infile.seek(0, 0)
+            for line in infile:
+                if 'Race' in line:
+                    self.races.append(
+                        create_race_from_line(line, self.heats))
+
         self.current_race = self.races[0]
         self.last_race = len(self.races) - 1
-        self.race_log_file = []
-        self.read_log_file(logfile)
-        try:
-            self.race_log_file = open(logfile, "a+")
-        except:
-            print("Unable to open {} for writing.")
-            descision = input("Continue without logging? [y/N]")
-            if 'y' or 'Y' in descision:
-                print("Continuing on.")
+
+    def load_races_from_yaml(self, file_name):
+        with open(file_name, 'r') as infile:
+            self.plan_dictionary = yaml.safe_load(infile)
+        for heat in self.plan_dictionary['heats']:
+            self.add_heat(create_heat_from_dict(heat))
+        if self.verbose:
+            self.print_heats()
+        for race in self.plan_dictionary['races']:
+            self.races.append(create_race_from_dict(race, self.heats))
+
+    def print_heats(self):
+        print("The race heats are as follows.")
+        for heat in self.heats:
+            print(heat.name, end=': ')
+            racer_names = [x.name for x in heat.racers]
+            print(racer_names)
+
+    def add_heat(self, heat):
+        self.heats.insert(-1, heat)
+
+    def add_racer(self, racer):
+        global default_heat_name
+        was_added = False
+        for heat in self.heats:
+            if heat.name == racer.heat_name:
+                was_added = heat.add_racer(racer)
+                break
+        if was_added is False:
+            if racer.heat_name == default_heat_name:
+                raise ValueError('No heat was found to match heat {} of {}. '.format(
+                    racer.heat_name, racer.name) +
+                                 'Since {} is the default heat name you may need to set the'.format(default_heat_name) +
+                                 ' heat name of {}.'.format(racer.name))
             else:
-                raise SystemExit
+                raise ValueError(
+                    'No heat was found to match heat {} of {}. '.format(
+                        racer.heat_name, racer.name) +
+                    'If this is a new heat, then add the heat before adding the racer.')
 
     def record_race_results(self, times, counts, accept):
         race = self.current_race
@@ -247,15 +456,16 @@ class Event:
         return 0
 
     def read_log_file(self, logfile):
-        print("Inputing previous results from {}:".format(logfile))
+        print("Inputting previous results from {}:".format(logfile))
         try:
             infile = open(logfile, "r")
-        except:
+        except OSError:
             print("No previous results were found.")
             return
         for line in infile:
             print(line)
             self.get_results_from_line(line)
+        infile.close()
 
     def get_results_from_line(self, line):
         fields = line.split(',')
@@ -306,21 +516,131 @@ class Event:
         self.current_race.post_results_to_racers()
         self.goto_next_race()
 
+    def print_plan_yaml(self,
+                        file_name='race_plan.yaml'):
+        self.generate_race_plan()
+
+        plan_dict = {
+            'heats':[],
+            'races':[]
+        }
+        for heat in self.heats[:-1]:
+            plan_dict['heats'].append(heat.to_dict())
+
+        for race in self.races:
+            plan_dict['races'].append(race.to_dict())
+
+        with open(file_name, 'w') as outfile:
+            yaml.safe_dump(plan_dict, outfile, indent=2)
+
+    def sort_heats(self):
+        " Put heats in order of ability index. "
+        ar = []
+
+        for heat in self.heats:
+            ar.append(heat.ability_rank)
+
+        # We want our "empty heat" to come out last so we make its
+        # ability index the highest.
+        max_ar = np.max(ar)
+        if ar[-1] < max_ar:
+            ar[-1] = max_ar + 1
+
+        order = np.argsort(ar)
+
+        new_heats = []
+
+        for idx in order:
+            new_heats.append(self.heats[idx])
+
+        self.heats = new_heats
+
+    def generate_race_plan(self):
+        new_plan = []
+
+        """
+        TODO Figure out how to add racers in the middle
+        of an event!
+        # Copy over any races that have already been recorded
+        for old_race in self.races:
+            if old_race.accepted_result_idx >= 0:
+                new_plan.append(old_race)
+                
+        """
+        self.sort_heats()
+
+        # We want to know who still needs to run in each lane
+        # The commented line is only useful if you want to track
+        # which lanes that racers have already run in.
+        needs_lane = [[], [], [], []]
+        racer_count = 0
+        for hi, heat in enumerate(self.heats[:-1]):
+            for lane_idx in range(self.n_lanes):
+                for ri, racer in enumerate(heat.racers):
+                    # if racer.race_counts[lane_idx] == 0:
+                    needs_lane[lane_idx].append((hi, ri, ri + racer_count))
+            racer_count += len(heat.racers)
+
+        # We have to figure out how to 'cycle' all the racers.
+        # A method is to make sure that there are N racers so
+        # that N%n_lanes = 1 or N%n_lanes = n_lanes-1. We can
+        # always add 'empty slots', so here we figure out how
+        # man empty slots to add.
+        remainder = len(needs_lane[0]) % self.n_lanes
+        n_empty = 0
+        if remainder == 0:
+            n_empty += 1
+        elif remainder > 1:
+            n_empty = self.n_lanes - 1 - remainder
+
+        # Add the empty heat slots.
+        empty_heat = len(self.heats) - 1
+        for lane_idx in range(self.n_lanes):
+            for idx in range(n_empty):
+                needs_lane[lane_idx].append((empty_heat, idx, idx + racer_count))
+
+        # Line all the entries up by re-arranging the entries
+        new_races = []
+        for xi in range(len(needs_lane[0])):
+            heats = []
+            racers = []
+            is_empty = []
+            for yi in range(self.n_lanes):
+                # We need to calculate the index for a transposed
+                # array.
+                linear_idx = xi * 4 + yi
+                li = linear_idx // len(needs_lane[0])
+                ri = linear_idx % len(needs_lane[0])
+                data = needs_lane[li][ri]
+                heats.append(self.heats[data[0]])
+                racers.append(self.heats[data[0]].racers[data[1]])
+                is_empty.append(data[2] == empty_heat)
+            new_races.append(Race(heats, racers, xi, is_empty, n_lanes=self.n_lanes))
+
+        self.races = new_races
+
 
 # DATA LOAD
 def create_heat_from_line(line):
     entries = line.split(',')
     heat_name = ' '.join(entries[0].split(' ')[:-1])
     racers = []
-    racer_names = []
     for rcr in list(filter(None, entries[1:])):
-        if (len(rcr) < 2):
+        if len(rcr) < 2:
             continue
         name = ' '.join(rcr.split(':')[:-1])
         rank = rcr.split(':')[-1]
-        racers.append(Racer(name, rank))
-        racer_names.append(name)
-    return Heat(heat_name, racers, racer_names), heat_name
+        racers.append(Racer(name=name, rank=rank, heat_name=heat_name))
+    return Heat(name=heat_name, racers=racers)
+
+
+def create_heat_from_dict(heat):
+    racers = []
+    for rcr in heat['racers']:
+        racers.append(Racer(name=rcr['name'], rank=rcr['rank']))
+    return Heat(name=heat['name'],
+                racers=racers,
+                ability_rank=heat['ability_rank'])
 
 
 def create_race_from_line(line, all_heats):
@@ -334,14 +654,14 @@ def create_race_from_line(line, all_heats):
             heats.append(all_heats[-1])
             racers.append(all_heats[-1].racers[li])
             is_empty[li] = True
-        racr_name = ' '.join(ent.split(':')[:-1])
+        racer_name = ' '.join(ent.split(':')[:-1])
         heat_name = ent.split(':')[-1]
         for heat in all_heats:
             if heat_name == heat.name:
                 heats.append(heat)
-                for i, rname in enumerate(heat.racer_names):
-                    if racr_name == rname:
-                        racers.append(heat.racers[i])
+                for known_racer in heat.racers:
+                    if racer_name == known_racer.name:
+                        racers.append(known_racer)
                         break
                 break
     out_str = str(race_num)
@@ -351,38 +671,32 @@ def create_race_from_line(line, all_heats):
     return Race(heats, racers, race_num, is_empty)
 
 
-def create_empty_lane_heat():
-    racer_names = ["empty {}".format(i + 1) for i in range(4)]
-    racers = [Racer(x, "Empty") for x in racer_names]
-    return Heat("Empty", racers, racer_names)
-
-
-def set_host_and_port():
-    global infile, host, port
-    with open(infile) as fp:
-        for line in fp:
-            laneNumber, hostAddress, hostPort = line.split(',')
-            li = int(laneNumber) - 1
-            host[li] = hostAddress
-            port[li] = int(hostPort)
-
-
-def load_races_from_file(fname):
+def create_race_from_dict(race, available_heats):
+    race_num = race['planned_number']
     heats = []
-    races = []
-    heat_names = []
-    with open(fname) as infile:
-        for line in infile:
-            if 'Heat' in line:
-                new_heat, heat_name = create_heat_from_line(line)
-                heats.append(new_heat)
-                heat_names.append(heat_name)
-        heats.append(create_empty_lane_heat())
-        for heat in heats:
-            print(heat.name)
-            print(heat.racer_names)
-        infile.seek(0, 0)
-        for line in infile:
-            if 'Race' in line:
-                races.append(create_race_from_line(line, heats))
-    return heats, races, heat_names
+    racers = []
+    is_empty = np.zeros(len(race['entries']), dtype=np.bool)
+    for li, ent in enumerate(race['entries']):
+        if ent['empty_lane']:
+            heats.append(available_heats[-1])
+            racers.append(available_heats[-1].racers[li])
+            is_empty[li] = True
+        else:
+            racer_name = ent['racer']
+            heat_name = ent['heat']
+            for heat in available_heats:
+                if heat.name == heat_name:
+                    heats.append(heat)
+                    for available_racer in heat.racers:
+                        if racer_name == available_racer.name:
+                            racers.append(available_racer)
+                            break
+                    break
+    if race['accepted_result_idx'] >= 0:
+        print("Write code to load the rest!")
+
+    out_str = str(race_num)
+    for racer,heat in zip(racers,heats):
+        out_str += " {}:{}".format(racer.name, heat.name)
+    print(out_str)
+    return Race(heats, racers, race_num, is_empty)
