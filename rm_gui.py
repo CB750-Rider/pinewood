@@ -21,7 +21,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import socket
-import sys
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog

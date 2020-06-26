@@ -1,6 +1,7 @@
 from race_event import Event, Heat, Racer, Race
 
-plan_file = 'test_plan.yaml'
+#plan_file = 'RacePlan.csv'
+plan_file = 'test_entries.yaml'
 log_file = 'race_log.csv'
 
 print("Creating the event.")
@@ -18,7 +19,7 @@ print("Attempting to add the racer with no heat defined.")
 try:
     event.add_racer(new_racer)
 except ValueError:
-    print("Success.")
+    print("Success!")
 else:
     print("Fail.")
 
@@ -28,25 +29,29 @@ print("Attempting to add a racer that already exists.")
 try:
     event.add_racer(new_racer)
 except ValueError:
-    print("Success.")
+    print("Success!")
 else:
     print("Fail.")
 
 print("Attempting to add a heat that already exists.")
+if event.heat_index(heat_name="engineer") < 0:
+    event.add_heat(Heat(name="engineer"))
 try:
     event.add_heat(Heat(name="engineer"))
 except ValueError:
-    print("Success")
+    print("Success!")
 else:
-    print("Fail")
+    print("Failure.")
 
 print("Attempting to add the racer with a heat and name that already exists.")
+if event.racer_index(heat_name="engineer", racer_name="Tom") < 0:
+    event.add_racer(new_racer)
 try:
     event.add_racer(new_racer)
 except ValueError:
-    print("Success")
+    print("Success!")
 else:
-    print("Fail")
+    print("Failure")
 
 print("Attempting to add a new racer.")
 try:
@@ -55,12 +60,12 @@ except Exception:
     print("Fail")
     raise
 else:
-    print("Success")
+    print("Success!")
 
 
 print("Attempting to remove a racer that does not exist.")
 if event.remove_racer(racer_name="Not a racer"):
-    print("Fail.")
+    print("Failure.")
 else:
     print("Success!")
 not_racer = Racer(name="Tom", heat_name="engineer")
@@ -132,7 +137,7 @@ if count == 2:
     print("Success!")
 else:
     print("Failure.")
-if event.remove_race(idx=-1):
+if event.remove_race(idx=-2):
     print("Success!")
 else:
     print("Failure.")
@@ -158,13 +163,4 @@ print("creating a new event from the plan we just saved.")
 event2 = Event(event_file="test_plan.yaml")
 
 print("That worked.")
-# TODO
-# Currently, after creating the plan there are only 3 races, but there should be many more. Why?
-#  1. Test Removing Racers, DONE
-#  2. Test Removing Heats, DONE
-#  3. Test adding/removing races, DONE
-#  Then, convert the race log to yaml. <- Skipping for now. I don't see the benefit
-#  Create a tool to print the race plan & Current Stats
-#  Next, Add a web+GUI interface for registering scouts.
-#  After That, Add a web interface for scout families to see their progress.
-#  Finally, convert the app to a web interface, or refactor the GUI code to better use classes.
+

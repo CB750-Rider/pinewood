@@ -35,6 +35,7 @@ limitations under the License.
 """
 import numpy as np
 import yaml
+from typing import List
 
 default_heat_name = "No_Heat"
 
@@ -160,7 +161,7 @@ class Racer:
 class Heat:
     def __init__(self,
                  name=default_heat_name,
-                 racers=[],
+                 racers: List[Racer] = [],
                  ability_rank=-1):
         self.name = name
         self.racers = racers
@@ -200,6 +201,18 @@ class Heat:
                     "Racers": racers,
                     "Times": self.times}
         self.races.insert(race_idx, new_race)
+
+    def racer_index(self, racer=None, racer_name=None):
+        if racer is None and racer_name is None:
+            raise ValueError("When calling racer_index, you must provide either a racer or racer_name.")
+        for racer_idx, each_racer in enumerate(self.racers):
+            if racer is None:
+                if racer_name == each_racer.name:
+                    return racer_idx
+            else:
+                if racer is each_racer:
+                    return racer_idx
+        return -1
 
     #   def set_current_race_idx(self, idx):
     #       self.current_race_idx = idx
@@ -333,7 +346,7 @@ class Event:
                 decision = input("Continue without logging? [y/N]")
                 if 'y' or 'Y' in decision:
                     print("Continuing on.")
-                    self .race_log_file = open("/dev/null", "w")
+                    self.race_log_file = open("/dev/null", "w")
                 else:
                     raise ValueError
 
@@ -366,8 +379,10 @@ class Event:
                 if 'Race' in line:
                     self.races.append(
                         create_race_from_line(line, self.heats))
-
-        self.current_race = self.races[0]
+        try:
+            self.current_race = self.races[0]
+        except IndexError:
+            self.current_race = None
         self.last_race = len(self.races) - 1
 
     def load_races_from_yaml(self, file_name):
@@ -377,8 +392,9 @@ class Event:
             self.add_heat(create_heat_from_dict(heat))
         if self.verbose:
             self.print_heats()
-        for race in self.plan_dictionary['races']:
-            self.races.append(create_race_from_dict(race, self.heats))
+        if 'races' in self.plan_dictionary.keys():
+            for race in self.plan_dictionary['races']:
+                self.races.append(create_race_from_dict(race, self.heats))
 
     def print_heats(self):
         print("The race heats are as follows.")
@@ -386,6 +402,25 @@ class Event:
             print(heat.name, end=': ')
             racer_names = [x.name for x in heat.racers]
             print(racer_names)
+
+    def heat_index(self, heat=None, heat_name=None):
+        if heat is None and heat_name is None:
+            raise ValueError("You must provide a heat or heat name to be removed.")
+        elif heat is not None:
+            for heat_idx, test in enumerate(self.heats):
+                if heat is test:
+                    return heat_idx
+        else:
+            for heat_idx, test, in enumerate(self.heats[:-1]):
+                if test.name == heat_name:
+                    return heat_idx
+        return -1
+
+    def racer_index(self, heat=None, heat_name=None, racer=None, racer_name=None):
+        heat_idx = self.heat_index(heat=heat, heat_name=heat_name)
+        if heat_idx < 0:
+            return heat_idx
+        return self.heats[heat_idx].racer_index(racer=racer, racer_name=racer_name)
 
     def add_heat(self, heat):
         for existing_heat in self.heats:
@@ -415,6 +450,8 @@ class Event:
     def add_race(self, race, location=-1):
         if location == 'next':
             self.races.insert(self.current_race_idx, race)
+        elif location == 'end':
+            self.races.append(race)
         else:
             self.races.insert(location, race)
 
@@ -464,8 +501,10 @@ class Event:
             for race_idx, test in enumerate(self.races):
                 if test is race:
                     self.races.pop(race_idx)
-                    removed=True
+                    removed = True
         else:
+            if idx == -1:
+                idx = -2
             self.races.pop(idx)
             removed = True
         return removed
@@ -586,8 +625,8 @@ class Event:
         self.generate_race_plan()
 
         plan_dict = {
-            'heats':[],
-            'races':[]
+            'heats': [],
+            'races': []
         }
         for heat in self.heats[:-1]:
             plan_dict['heats'].append(heat.to_dict())
@@ -684,6 +723,12 @@ class Event:
 
         self.races = new_races
 
+        if self.current_race is None:
+            try:
+                self.current_race = self.races[0]
+            except IndexError:
+                self.current_race = None
+
 
 # DATA LOAD
 def create_heat_from_line(line):
@@ -697,6 +742,7 @@ def create_heat_from_line(line):
         rank = rcr.split(':')[-1]
         racers.append(Racer(name=name, rank=rank, heat_name=heat_name))
     return Heat(name=heat_name, racers=racers)
+
 
 def create_racer_from_dict(rcr_dict, heat_name):
     out = Racer(name=rcr_dict['name'],
@@ -717,9 +763,7 @@ def create_heat_from_dict(heat):
     for rcr in heat['racers']:
         racer = create_racer_from_dict(rcr, heat['name'])
         out.add_racer(racer)
-    return Heat(name=heat['name'],
-                racers=racers,
-                ability_rank=heat['ability_rank'])
+    return out
 
 
 def create_race_from_line(line, all_heats):
@@ -775,7 +819,7 @@ def create_race_from_dict(race, available_heats):
         print("Write code to load the rest!")
 
     out_str = str(race_num)
-    for racer,heat in zip(racers,heats):
+    for racer, heat in zip(racers, heats):
         out_str += " {}:{}".format(racer.name, heat.name)
     print(out_str)
     return Race(heats, racers, race_num, is_empty)
