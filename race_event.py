@@ -171,9 +171,12 @@ class Heat:
 
     def add_racer(self, racer):
         if racer.heat_name != self.name:
-            raise Exception(ValueError, "Unable to add a racer to {} because their heat is {}".format(
+            raise ValueError("Unable to add a racer to '{}' because their heat is '{}'".format(
                 self.name, racer.heat_name
             ))
+        for existing_racer in self.racers:
+            if racer.name == existing_racer.name:
+                raise ValueError(f"A racer named '{racer.name}' already exists in the {self.name} heat.")
         idx = len(self.racers)
         self.racers.append(racer)
         racer.set_heat(self.name, idx)
@@ -306,6 +309,7 @@ class Event:
         # Load the log file that gives what part of the race has
         # already run
         # TODO Check the log file to make sure it matches the plan
+        # TODO Start here with converting the log to YAML
         self.race_log_file = None
         if log_file is not None:
             self.read_log_file(log_file)
@@ -384,6 +388,9 @@ class Event:
             print(racer_names)
 
     def add_heat(self, heat):
+        for existing_heat in self.heats:
+            if existing_heat.name == heat.name:
+                raise ValueError(f"A heat with the name '{heat.name}' already exists.")
         self.heats.insert(-1, heat)
 
     def add_racer(self, racer):
@@ -404,6 +411,64 @@ class Event:
                     'No heat was found to match heat {} of {}. '.format(
                         racer.heat_name, racer.name) +
                     'If this is a new heat, then add the heat before adding the racer.')
+
+    def add_race(self, race, location=-1):
+        if location == 'next':
+            self.races.insert(self.current_race_idx, race)
+        else:
+            self.races.insert(location, race)
+
+    def remove_heat(self, heat=None, heat_name=None):
+        removed = False
+        if heat is None and heat_name is None:
+            raise ValueError("You must provide a heat or heat name to be removed.")
+        elif heat is not None:
+            if heat is self.heats[-1]:
+                print("You may not remove the empty heat.")
+            for heat_idx, test in enumerate(self.heats[:-1]):
+                if heat is test:
+                    self.heats.pop(heat_idx)
+                    removed = True
+        else:
+            if heat_name == 'Empty':
+                print("You may not remove the empty heat.")
+            for heat_idx, test, in enumerate(self.heats[:-1]):
+                if test.name == heat_name:
+                    self.heats.pop(heat_idx)
+                    removed = True
+        return removed
+
+    def remove_racer(self, racer=None, racer_name=None):
+        removed = False
+        if racer is None and racer_name is None:
+            raise ValueError("You must provide a racer or racer name to be removed.")
+        elif racer is not None:
+            for heat in self.heats:
+                for racer_idx, test in enumerate(heat.racers):
+                    if racer is test:
+                        heat.racers.pop(racer_idx)
+                        removed = True
+        else:
+            for heat in self.heats:
+                for racer_idx, test in enumerate(heat.racers):
+                    if racer_name == test.name:
+                        heat.racers.pop(racer_idx)
+                        removed = True
+        return removed
+
+    def remove_race(self, race=None, idx=None):
+        removed = False
+        if race is None and idx is None:
+            raise ValueError("You must provide a race or index.")
+        elif race is not None:
+            for race_idx, test in enumerate(self.races):
+                if test is race:
+                    self.races.pop(race_idx)
+                    removed=True
+        else:
+            self.races.pop(idx)
+            removed = True
+        return removed
 
     def record_race_results(self, times, counts, accept):
         race = self.current_race
@@ -633,11 +698,25 @@ def create_heat_from_line(line):
         racers.append(Racer(name=name, rank=rank, heat_name=heat_name))
     return Heat(name=heat_name, racers=racers)
 
+def create_racer_from_dict(rcr_dict, heat_name):
+    out = Racer(name=rcr_dict['name'],
+                rank=rcr_dict['rank'],
+                heat_name=heat_name)
+    if 'car_status' in rcr_dict.keys():
+        car_status = rcr_dict['car_status']
+        for key in car_status:
+            out.car_status[key] = car_status[key]
+    return out
+
 
 def create_heat_from_dict(heat):
     racers = []
+    out = Heat(name=heat['name'],
+               racers=[],
+               ability_rank=heat['ability_rank'])
     for rcr in heat['racers']:
-        racers.append(Racer(name=rcr['name'], rank=rcr['rank']))
+        racer = create_racer_from_dict(rcr, heat['name'])
+        out.add_racer(racer)
     return Heat(name=heat['name'],
                 racers=racers,
                 ability_rank=heat['ability_rank'])

@@ -117,7 +117,7 @@ void setup() {
   pinMode(COUNT,INPUT_PULLUP);
   pinMode(RESET_IN,INPUT_PULLUP);
   pinMode(RESET_OUT,OUTPUT);
-  digitalWrite(RESET_OUT,LOW);
+  digitalWrite(RESET_OUT,HIGH);
   pinMode(USER_INPUT, INPUT_PULLUP);
   pinMode(LED_PIN,OUTPUT);
   attachInterrupt(digitalPinToInterrupt(COUNT), count, CHANGE);
@@ -192,7 +192,7 @@ void send_reset_to_timer(){
       wifiClient.write((uint8_t *)msg,sizeof(msg)); 
     } /* if the client is connected */
   } /* if the client is valid */
-  digitalWrite(RESET_OUT,HIGH);
+  digitalWrite(RESET_OUT,LOW);
   static_message(msg);
   delay(LOOP_DELAY*3); /* Give time for the others to react */
   while(digitalRead(RESET_IN) && watchdog<10){
@@ -201,7 +201,7 @@ void send_reset_to_timer(){
     display.display();
     watchdog++;
   }
-  digitalWrite(RESET_OUT,LOW);
+  digitalWrite(RESET_OUT,HIGH);
   race_set();
 }
 void reset_rx(){
@@ -387,9 +387,9 @@ void loop() {
   if(!digitalRead(USER_INPUT)){
     press_count ++;
     switch(press_count){
-      case 1: /* Reset the track */
+      case 5: /* Reset the track */
         if(!reset_pressed)
-          reset_rx();
+          send_reset_to_timer();
           break;
       case 10: /* Three slow and three fast blinks */
       case 50:
