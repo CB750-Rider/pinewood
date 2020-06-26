@@ -105,11 +105,72 @@ class RacerDialog:
             text.pack()
         else:
             self.heat = parent.event.heats[heat_idx]
-            if racer is None:
+            if racer is None:  # Create a new racer
                 racer = Racer(name="<Name>", rank="", heat_name=self.heat.name, heat_index=heat_idx)
-            text = tk.Label(self._window, text="Write the code for RacerDialog!",
-                            font=("Serif", 14))
+
+            self.hidden_frame = tk.Frame(self._window)
+            self.hidden_frame.pack(fill=tk.BOTH, expand=True)
+
+            self.frame = tk.Frame(self._window)
+            self.frame.pack(fill=tk.BOTH, expand=True)
+
+            self.name_field = self.text_input( "Name", 50, racer.name)
+            self.rank_field = self.text_input( "Rank", 50, racer.rank)
+
+            self.heat_string = tk.StringVar(self.top)
+            self.heat_string.set(racer.heat_name)
+            heat_options = [heat.name for heat in self.event.heats[:-1]]
+            self.heat_selector = tk.OptionMenu(self.frame, self.heat_string, *heat_options)
+
+            self.car_weight = self.text_input( "Car weight", 15, "0.0")
+
+            self.car_status = self.car_status_list(racer.car_status)
+
+            text = tk.Label(self.frame, text="Notes")
             text.pack()
+            self.notes = tk.Entry(self.frame, width=100)
+            self.notes.pack(ipady=20)
+
+            bottom_frame = tk.Frame(self.frame)
+            bottom_frame.pack(fill=tk.BOTH, expand=True)
+
+            save = tk.Button(bottom_frame, text="Accept", command=self.accept)
+            save.pack(side=tk.LEFT)
+
+            cancel = tk.Button(bottom_frame, text="Cancel", command=self._window.destroy)
+            cancel.pack(side=tk.RIGHT)
+
+    def text_input(self, label, width, default):
+        inner_frame = tk.Frame(self.frame)
+        inner_frame.pack(fill=tk.BOTH,expand=True)
+
+        label = tk.Label(inner_frame, text=label)
+        label.pack(side=tk.LEFT)
+
+        entry = tk.Entry(inner_frame, width=width)
+        entry.pack(side=tk.LEFT)
+        entry.insert(0, default)
+
+        return entry
+
+    def car_status_list(self, status_dict: dict):
+        out_dict = status_dict.copy()
+
+        for key in status_dict.keys():
+            if key == 'weight':
+                continue
+            var = tk.IntVar(self.frame, value=status_dict[key])
+            frame = tk.Frame(self.frame)
+            frame.pack()
+            out_dict[key] = tk.Checkbutton(frame,
+                                           text=key,
+                                           variable=var
+                                           )
+            out_dict[key].pack(side=tk.LEFT)
+        return out_dict
+
+    def accept(self):
+        print("Write code to save your changes.")
 
 
 class HeatDialog:
@@ -251,7 +312,7 @@ class RacerList:
         idx = self.get_selected_racer_index()
         if idx >= 0:
             racer = self.parent.get_racer_by_index(idx)
-            RacerDialog(self.top, self.parent.event, racer=racer)
+            RacerDialog(self.parent,  racer=racer)
 
 
 class HeatList:

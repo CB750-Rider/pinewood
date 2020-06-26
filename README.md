@@ -22,14 +22,15 @@ There are also some testing and debugging tools. This project is still incomplet
 ## TODO List
 
   1. Convert the race log to yaml. <- Skipping for now. I don't see a huge benefit
-    2. Improve this README
-    3. Create a tool to print the race plan & current stats
-    4. Add a GUI interface for registering scouts.
-        a. add the action to the delete selected button for racers and heats. 
-           b. get the add-racer button to work. It should add racers into the highlighted heat and add all the registration entry stuff
-    5. Add a GUI interface for adding/editing races.
-    6. Add the ability to add championship heats
-    7.  Add a web interface for scout families to see their progress.
-    8.  Finally, convert the applications to a web interface
-    9. Refactor the messy Race Manager GUI code to better use classes.
+  2. Improve this README
+  3. Create a tool to print the race plan & current stats
+  4. Add a GUI interface for registering scouts.
+        a. add the action to the delete selected button for racers and heats.      
+        b. get the add/edit racer dialog to work (save doesn't happen, and the formating needs help)
+        c. The heats selector goes back to "all" when it loses focus. We need to fix that. Maybe change it to an OptionsMenu?
+  5. Add a GUI interface for adding/editing races.
+  6. Add the ability to add championship heats
+  7.  Add a web interface for scout families to see their progress.
+  8.  Finally, convert the applications to a web interface
+  9. Refactor the messy Race Manager GUI code to better use classes.
 
