@@ -22,3 +22,5 @@ Rev2.0_required_changes.txt
 TODO_Derby_Timer
 race_manager.egg-info
 *.yaml
+pinewood.egg-info
+dist

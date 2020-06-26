@@ -1,6 +1,0 @@
-README.md
-setup.py
-pinewood.egg-info/PKG-INFO
-pinewood.egg-info/SOURCES.txt
-pinewood.egg-info/dependency_links.txt
-pinewood.egg-info/top_level.txt
