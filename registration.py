@@ -20,34 +20,54 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import socket
-import numpy as np
 import tkinter as tk
-from tkinter import filedialog
-import time
-import select
 from race_event import Event, Heat, Racer
 import argparse
+import datetime
+from tkinter import messagebox, filedialog
+import os
 
 description = "A Graphical Interface for setting up Pinewood Derby Races"
 
 parser = argparse.ArgumentParser(description=description)
-parser.add_argument('--hosts_file', help='A file with the ip and port addresses of the lane timers (hosts).',
-                    default='lane_hosts.csv')
 parser.add_argument('--event_file', help='A file with the event plan listed.',
-                    default='RacePlan.csv')
-parser.add_argument('--log_file', help='The name of a file to save race times to.',
-                    default='derby_race_log.csv')
+                    default=None)
+parser.add_argument('--save_action',
+                    help="Define what to do when we close. Options are ask, overwrite, new_file, and no_save.",
+                    default='ask')
+
+
+def new_fname(old_name):
+    now = datetime.datetime.now()
+    try:
+        fpath, basename = os.path.split(old_name)
+    except TypeError:
+        fpath = ""
+        basename = "_plan.yaml"
+    new_name = os.path.join(fpath, now.isoformat() + basename)
+    idx = 0
+    while os.path.isfile(new_name):
+        new_name = os.path.join(fpath, now.isoformat() + '_' + str(idx) + basename)
+        idx += 1
+    return new_name
 
 
 class RegistrationWindow:
     def __init__(self,
                  top: tk.Tk,
-                 event: Event):
+                 event_file: str = None):
         self.top = top
-        self.event = event
 
-        self.button_pane = ButtonPane(self, event)
+        self.in_file_name = event_file
+
+        self.out_file_name = self.in_file_name
+
+        self.event = Event(event_file=event_file, check_log_file=False)
+
+        top.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.running = True
+
+        self.create_menubar(top)
 
         self.racer_list = RacerList(self)
 
@@ -59,18 +79,52 @@ class RegistrationWindow:
 
         self.check_racer_pane()
 
+    def create_menubar(self, top):
+        menubar = tk.Menu(top)
+        filemenu = tk.Menu(menubar, tearoff=0)
+        filemenu.add_command(label="Open", command=self.open_event)
+        filemenu.add_command(label="Save", command=self.save)
+        filemenu.add_command(label="Save As", command=self.save_as)
+        filemenu.add_separator()
+        filemenu.add_command(label="Exit", command=self.on_closing)
+
+        menubar.add_cascade(label="File", menu=filemenu)
+
+        top.config(menu=menubar)
+
+    def open_event(self):
+        self.in_file_name = filedialog.askopenfilename()
+        self.event = Event(event_file=self.in_file_name, check_log_file=False)
+        self.active_heat = None
+        self.set_heat_pane()
+        self.check_racer_pane()
+
+    def save_as(self):
+        self.out_file_name = filedialog.asksaveasfilename()
+        self.save()
+
+    def save(self):
+        self.event.print_plan_yaml(self.out_file_name)
+
+    def on_closing(self):
+        self.running = False
+
     def mainloop(self):
         self.top.mainloop()
+        return self.event, self.out_file_name
 
     def check_racer_pane(self):
         cur_idx = self.heat_list.get_selected_heat_index()
         if cur_idx != self.active_heat:
             self.active_heat = cur_idx
             self.racer_list.set_racers_from_heat(self.active_heat)
-        self.top.after(50, self.check_racer_pane)
+        if self.running:
+            self.top.after(50, self.check_racer_pane)
+        else:
+            self.top.destroy()
 
     def set_heat_pane(self):
-        self.heat_list.update_heat_list(self.event.heats)
+        self.heat_list.update_heat_list()
 
     def get_racer_by_index(self, index):
         heat_index = self.heat_list.get_selected_heat_index()
@@ -96,7 +150,6 @@ class RacerDialog:
         self.event = parent.event
         self.parent = parent
         self._window = tk.Toplevel(parent.top)
-        self.new_racer = racer
 
         heat_idx = parent.heat_list.get_selected_heat_index()
         if heat_idx < 0:
@@ -105,8 +158,11 @@ class RacerDialog:
             text.pack()
         else:
             self.heat = parent.event.heats[heat_idx]
+            self.original_heat = self.heat
             if racer is None:  # Create a new racer
                 racer = Racer(name="<Name>", rank="", heat_name=self.heat.name, heat_index=heat_idx)
+                self.heat.add_racer(racer)
+            self.racer = racer
 
             self.hidden_frame = tk.Frame(self._window)
             self.hidden_frame.pack(fill=tk.BOTH, expand=True)
@@ -114,22 +170,17 @@ class RacerDialog:
             self.frame = tk.Frame(self._window)
             self.frame.pack(fill=tk.BOTH, expand=True)
 
-            self.name_field = self.text_input( "Name", 50, racer.name)
-            self.rank_field = self.text_input( "Rank", 50, racer.rank)
+            self.name_field = self.text_input("Name", 25, racer.name)
+            self.rank_field = self.text_input("Rank", 25, racer.rank)
 
-            self.heat_string = tk.StringVar(self.top)
-            self.heat_string.set(racer.heat_name)
-            heat_options = [heat.name for heat in self.event.heats[:-1]]
-            self.heat_selector = tk.OptionMenu(self.frame, self.heat_string, *heat_options)
-
-            self.car_weight = self.text_input( "Car weight", 15, "0.0")
+            self.car_weight = self.text_input("Car Weight", 15, "0.0")
 
             self.car_status = self.car_status_list(racer.car_status)
 
             text = tk.Label(self.frame, text="Notes")
             text.pack()
-            self.notes = tk.Entry(self.frame, width=100)
-            self.notes.pack(ipady=20)
+            self.notes = tk.Text(self.frame)
+            self.notes.pack(expand=True, fill=tk.BOTH)
 
             bottom_frame = tk.Frame(self.frame)
             bottom_frame.pack(fill=tk.BOTH, expand=True)
@@ -137,40 +188,87 @@ class RacerDialog:
             save = tk.Button(bottom_frame, text="Accept", command=self.accept)
             save.pack(side=tk.LEFT)
 
+            option_frame = tk.Frame(bottom_frame)
+            option_frame.pack(side=tk.LEFT, expand=True, fill=tk.X)
+            heat_options = [heat.name for heat in self.event.heats[:-1]]
+            self.heat_selector = self.option_input(option_frame,
+                                                   "Select Heat",
+                                                   heat_options)
+            self.heat_selector.pack()
+
             cancel = tk.Button(bottom_frame, text="Cancel", command=self._window.destroy)
             cancel.pack(side=tk.RIGHT)
 
     def text_input(self, label, width, default):
         inner_frame = tk.Frame(self.frame)
-        inner_frame.pack(fill=tk.BOTH,expand=True)
+        inner_frame.pack(fill=tk.BOTH, expand=True)
 
-        label = tk.Label(inner_frame, text=label)
+        label = tk.Label(inner_frame, text=label, width=10)
         label.pack(side=tk.LEFT)
 
         entry = tk.Entry(inner_frame, width=width)
-        entry.pack(side=tk.LEFT)
+        entry.pack(side=tk.LEFT, pady=4, padx=4)
         entry.insert(0, default)
 
         return entry
 
+    def option_input(self, parent, label, options):
+        heat_string = tk.StringVar(parent)
+        heat_string.set(label)
+        option_menu = tk.OptionMenu(parent, heat_string, *options,
+                                    command=self.set_heat)
+        return option_menu
+
     def car_status_list(self, status_dict: dict):
         out_dict = status_dict.copy()
 
+        idx = 0
         for key in status_dict.keys():
-            if key == 'weight':
+            if key == 'weight' or key == 'notes':
                 continue
-            var = tk.IntVar(self.frame, value=status_dict[key])
             frame = tk.Frame(self.frame)
-            frame.pack()
-            out_dict[key] = tk.Checkbutton(frame,
-                                           text=key,
-                                           variable=var
-                                           )
-            out_dict[key].pack(side=tk.LEFT)
+            frame.pack(expand=True, anchor=tk.W)
+            out_dict[key] = tk.IntVar(frame, value=status_dict[key])
+            text = ' '.join(key.split('_'))
+            gap = tk.Label(frame, width=9)
+            gap.pack(side=tk.LEFT, expand=False)
+            check_button = tk.Checkbutton(frame,
+                                          text=text,
+                                          variable=out_dict[key]
+                                          )
+            check_button.pack(padx=2, anchor=tk.W, side=tk.LEFT)
+            idx += 1
         return out_dict
 
     def accept(self):
-        print("Write code to save your changes.")
+        self.racer.name = self.name_field.get()
+        self.racer.rank = self.rank_field.get()
+        try:
+            self.racer.car_status['weight'] = float(self.car_weight.get())
+        except ValueError:
+            error_text = tk.Label(self.hidden_frame,
+                                  text="Unable to convert the car weight to float.",
+                                  fg='red',
+                                  bg='black')
+            return
+        self.car_status['notes'] = self.notes.get(1.0, tk.END)
+        for key in self.racer.car_status.keys():
+            if key == 'notes' or key == 'weight':
+                continue
+            self.racer.car_status[key] = bool(self.car_status[key])
+
+        if self.heat is not self.original_heat:
+            self.original_heat.remove_racer(racer=self.racer)
+            self.racer.heat_name = self.heat.name
+            self.heat.add_racer(self.racer)
+
+        heat_idx = self.event.heat_index(heat=self.original_heat)
+        self.parent.racer_list.set_racers_from_heat(heat_idx)
+        self._window.destroy()
+
+    def set_heat(self, value):
+        heat_idx = self.event.heat_index(heat_name=value)
+        self.heat = self.event.heats[heat_idx]
 
 
 class HeatDialog:
@@ -223,6 +321,9 @@ class HeatDialog:
         self.heat.name = name
         self.heat.ability_rank = int(grade)
 
+        for racer in self.heat.racers:
+            racer.heat_name = name
+
         if self.event.heat_index(heat=self.heat) < 0:
             try:
                 self.event.add_heat(self.heat)
@@ -232,34 +333,9 @@ class HeatDialog:
 
         self.event.sort_heats()
 
-        self.parent.set_heat_pane()
+        self.parent.heat_list.update_heat_list()
+
         self._window.destroy()
-
-
-class ButtonPane:
-    def __init__(self,
-                 parent: RegistrationWindow,
-                 event: Event):
-        top = parent.top
-        self.parent = parent
-        self._button_frame = tk.Frame(top)
-        self._button_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
-        self.top = top
-        self.event = event
-
-        add_racer_btn = tk.Button(self._button_frame, text="Add Racer", command=self.add_racer)
-        add_racer_btn.pack()
-
-        add_heat_btn = tk.Button(self._button_frame, text="Add Heat", command=self.add_heat)
-        add_heat_btn.pack()
-
-    def add_racer(self):
-        RacerDialog(self.parent)
-        self.parent.check_racer_pane()
-
-    def add_heat(self):
-        HeatDialog(self.parent)
-        self.parent.set_heat_pane()
 
 
 class RacerList:
@@ -271,12 +347,17 @@ class RacerList:
         self._outer_frame.pack(fill=tk.BOTH, expand=True, side=tk.RIGHT)
         title = tk.Label(self._outer_frame, text="Racers", font=('Serif', 22))
         title.pack(expand=True, fill=tk.X)
-        self.list_box = tk.Listbox(self._outer_frame, selectmode=tk.SINGLE)
+        self.list_box = tk.Listbox(self._outer_frame, selectmode=tk.SINGLE,
+                                   exportselection=False)
         self.list_box.pack(expand=True, fill=tk.BOTH)
 
         edit_button = tk.Button(self._outer_frame, text="Edit", font=('Serif', 16),
                                 command=self.edit_selected_racer)
         edit_button.pack(fill=tk.X, pady=2)
+
+        add_button = tk.Button(self._outer_frame, text="Add", font=('Serif', 16),
+                               command=self.add_racer)
+        add_button.pack(fill=tk.X, pady=2)
 
         delete_button = tk.Button(self._outer_frame, text="Delete", font=('Serif', 16),
                                   command=self.delete_selection)
@@ -284,10 +365,14 @@ class RacerList:
 
         self.set_racers_from_heat(-1)
 
+    def add_racer(self):
+        RacerDialog(self.parent)
+        self.parent.check_racer_pane()
+
     def set_racers_from_heat(self, heat_idx):
         self.list_box.delete(0, tk.END)
         if heat_idx < 0:
-            for heat in self.parent.event.heats:
+            for heat in self.parent.event.heats[:-1]:
                 self.add_racers_from_heat(heat)
         else:
             self.add_racers_from_heat(self.parent.event.heats[heat_idx])
@@ -304,15 +389,28 @@ class RacerList:
             return -1
 
     def delete_selection(self):
-        idx = self.get_selected_racer_index()
-        if idx >= 0:
-            print("Write the delete racer selection funciton.")
+        racer_idx = self.get_selected_racer_index()
+        if racer_idx >= 0:
+            racer = self.parent.get_racer_by_index(racer_idx)
+            heat_idx_a = self.parent.event.heat_index(heat_name=racer.heat_name)
+            heat_idx_b = self.parent.heat_list.get_selected_heat_index()
+            title = f"Delete {racer.name}"
+            message = f"Do you want to permanently delete the racer {racer.name}?"
+            if messagebox.askyesno(title, message):
+                try:
+                    self.parent.event.remove_racer(racer=racer)
+                except ValueError:
+                    print("Unable to remove racer.")
+                    return
+                else:
+                    if heat_idx_a == heat_idx_b:
+                        self.parent.racer_list.set_racers_from_heat(heat_idx_a)
 
     def edit_selected_racer(self):
         idx = self.get_selected_racer_index()
         if idx >= 0:
             racer = self.parent.get_racer_by_index(idx)
-            RacerDialog(self.parent,  racer=racer)
+            RacerDialog(self.parent, racer=racer)
 
 
 class HeatList:
@@ -324,12 +422,18 @@ class HeatList:
         self._outer_frame.pack(fill=tk.BOTH, expand=True, side=tk.RIGHT)
         title = tk.Label(self._outer_frame, text="Heats", font=('Serif', 22))
         title.pack(expand=True, fill=tk.X)
-        self.list_box = tk.Listbox(self._outer_frame, selectmode=tk.SINGLE)
+
+        self.list_box = tk.Listbox(self._outer_frame, selectmode=tk.SINGLE,
+                                   exportselection=False)
         self.list_box.pack(expand=True, fill=tk.BOTH)
 
         edit_button = tk.Button(self._outer_frame, text="Edit", font=('Serif', 16),
                                 command=self.edit_selected_heat)
         edit_button.pack(fill=tk.X, pady=2)
+
+        add_button = tk.Button(self._outer_frame, text="Add", font=('Serif', 16),
+                               command=self.add_heat)
+        add_button.pack(fill=tk.X, pady=2)
 
         delete_button = tk.Button(self._outer_frame, text="Delete", font=('Serif', 16),
                                   command=self.delete_selection)
@@ -337,11 +441,15 @@ class HeatList:
 
         self.update_heat_list()
 
-    def update_heat_list(self, heats=None):
+    def update_heat_list(self):
         self.list_box.delete(0, tk.END)
         self.list_box.insert(tk.END, "All Racers")
         for heat in self.parent.event.heats[:-1]:  # The last heat should stay hidden
             self.list_box.insert(tk.END, heat.name)
+
+    def add_heat(self):
+        HeatDialog(self.parent)
+        self.parent.set_heat_pane()
 
     def get_selected_heat_index(self):
         selected_value = self.list_box.curselection()
@@ -352,8 +460,22 @@ class HeatList:
 
     def delete_selection(self):
         idx = self.get_selected_heat_index()
+        heat = self.parent.event.heats[idx]
         if idx >= 0:
-            print("Write the delete selection funciton.")
+            title = f"Delete {heat.name}"
+            if len(heat.racers) > 1:
+                message = f"Do you want to permanently delete the heat {heat.name} and the following racers:"
+                for racer in heat.racers[:-1]:
+                    message += " " + racer.name + ","
+                message += " and " + heat.racers[-1].name + "?"
+            if messagebox.askyesno(title, message):
+                try:
+                    self.parent.event.remove_heat(heat=self.parent.event.heats[idx])
+                except ValueError:
+                    print("Unable to remove heat.")
+                    return
+                else:
+                    self.parent.heat_list.update_heat_list()
 
     def edit_selected_heat(self):
         idx = self.get_selected_heat_index()
@@ -362,13 +484,76 @@ class HeatList:
             HeatDialog(self.parent, heat=heat)
 
 
+class SaveWindow:
+    def __init__(self,
+                 parent: tk.Tk,
+                 input_fname: str):
+        self.parent = parent
+        self.suggested_fname = new_fname(input_fname)
+        self.overwrite_name = input_fname
+        self.return_name = self.suggested_fname
+
+        if messagebox.askyesno("Save?", "Do you need to save your work?"):
+            self.running = True
+        else:
+            self.return_name = None
+            self.running = False
+
+        question = tk.Label(parent, text="What would you like to do with the changes you made?")
+        question.pack(fill=tk.BOTH, expand=True)
+
+        button = tk.Button(parent, text=f"Save as {self.suggested_fname}", command=self.use_suggested)
+        button.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        button = tk.Button(parent, text=f"Select a filename", command=self.select_file)
+        button.pack(fill=tk.BOTH, expand=True)
+
+        button = tk.Button(parent, text=f"Overwrite {self.overwrite_name}", command=self.overwrite)
+        button.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        button = tk.Button(parent, text=f"Do Not Save", command=self.dont_save)
+        button.pack(fill=tk.BOTH, expand=True)
+
+    def use_suggested(self):
+        self.return_name = self.suggested_fname
+        self.parent.destroy()
+
+    def select_file(self):
+        self.return_name = filedialog.asksaveasfilename(defaultextension=".yaml")
+        self.parent.destroy()
+
+    def overwrite(self):
+        self.return_name = self.overwrite_name
+        self.parent.destroy()
+
+    def dont_save(self):
+        self.return_name = None
+        self.parent.destroy()
+
+    def get_preference(self):
+        if self.running:
+            self.parent.mainloop()
+        return self.return_name
+
+
 if __name__ == "__main__":
     post_placements = True
     cli_args = parser.parse_args()
 
-    event = Event(event_file=cli_args.event_file,
-                  log_file=cli_args.log_file)
+    main_window = RegistrationWindow(tk.Tk(),
+                                     event_file=cli_args.event_file)
 
-    main_window = RegistrationWindow(tk.Tk(), event)
+    event, file_name = main_window.mainloop()
 
-    main_window.mainloop()
+    if cli_args.save_action == 'ask':
+        save_window = SaveWindow(tk.Tk(), file_name)
+        out_fname = save_window.get_preference()
+    if cli_args.save_action == 'overwrite':
+        out_fname = cli_args.event_file
+    elif cli_args.save_action == 'new_file':
+        out_fname = new_fname(cli_args.event_file)
+    else:
+        out_frame = None
+
+    if out_fname is not None:
+        event.print_plan_yaml(out_fname)

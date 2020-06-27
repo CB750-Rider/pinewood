@@ -182,6 +182,18 @@ class Heat:
         self.racers.append(racer)
         racer.set_heat(self.name, idx)
 
+    def remove_racer(self, racer=None, racer_name=None):
+        if racer is not None:
+            for racer_idx, existing_racer in enumerate(self.racers):
+                if existing_racer is racer:
+                    self.racers.pop(racer_idx)
+        elif racer_name is not None:
+            for racer_idx, existing_racer in enumerate(self.racers):
+                if existing_racer.name == racer_name:
+                    self.racers.pop(racer_idx)
+        else:
+            raise ValueError("You must provide a racer or racer name to be removed.")
+
     def to_dict(self):
         racers = []
         for racer in self.racers:
@@ -304,7 +316,8 @@ class Event:
                  event_file=None,
                  log_file=None,
                  n_lanes=4,
-                 verbose=False):
+                 verbose=False,
+                 check_log_file=True):
         self.verbose = verbose
         self.n_lanes = n_lanes
 
@@ -334,7 +347,7 @@ class Event:
             except OSError:
                 print("Unable to open {} for writing.")
                 pass
-        if self.race_log_file is None:
+        if self.race_log_file is None and check_log_file:
             decision = input("Attempt to use the default log file? [Y/n]")
             if 'n' or 'N' in decision:
                 try:
@@ -550,7 +563,7 @@ class Event:
             outfile.write(header)
             rank = 1
             for i in range(len(times)):
-                if (times[si[i]] > 0):
+                if times[si[i]] > 0:
                     line = "{0:8d}{1}{2}{3:10.4f}\n".format(rank,
                                                             racer_names[si[i]].rjust(30),
                                                             heat_names[si[i]].rjust(12),
