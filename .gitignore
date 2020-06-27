@@ -1,4 +1,5 @@
 *.swp
+*.odg
 *.xcf
 __pycache__
 C_Timer
