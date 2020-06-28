@@ -5,7 +5,7 @@ This repository holds some tools I wrote to run a pinewood derby. The software h
 1. Device code for the derby timers.
 2. Python code for managing the race.
 
-The library requires [tksheet](git@github.com:ragardner/tksheet.git).
+The library requires [tksheet](https://github.com/ragardner/tksheet).
 
 ## Derby TTL Timers
 
