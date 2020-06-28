@@ -5,6 +5,8 @@ This repository holds some tools I wrote to run a pinewood derby. The software h
 1. Device code for the derby timers.
 2. Python code for managing the race.
 
+The library requires [tksheet](https://github.com/ragardner/tksheet).
+
 ## Derby TTL Timers
 
 The [device code](NodeMCU_Code/DerbyTimerNodeMCU/DerbyTimerNodeMCU.ino) is written for the [NodeMcu](https://www.nodemcu.com/index_en.html) development kit which is interfaced to a set of custom-built timers. If you are interested in the timer hardware, let me know via E-mail. The timers are Transistor-Transistor Logic (TTL) systems that use optical triggers to clock when the race "starts" and when cars pass the finish line. The TTL systems block/unblock a clock signal from getting to a counter/recorder. For our system, the NodeMcu works as the counter/recorder and sends the results via WiFi to another computer. There is one NodeMcu, and one end trigger per lane on the Pinewood track. The timers can be set up to use one start trigger signal per lane, or to share a single start trigger signal.
