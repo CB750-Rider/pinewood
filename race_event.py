@@ -226,6 +226,10 @@ class Heat:
                     return racer_idx
         return -1
 
+    def get_racer(self, racer_name):
+        idx = self.racer_index(racer_name=racer_name)
+        return self.racers[idx]
+
     #   def set_current_race_idx(self, idx):
     #       self.current_race_idx = idx
 
@@ -308,6 +312,14 @@ class Race:
                    'counts': self.counts,
                    'index_of_race(s)_in_log': self.race_number,
                    'placements': self.placements}
+        return out
+
+    def get_racer_list(self, out=[]):
+        for racer in self.racers:
+            if racer.heat_name == "Empty":
+                out.append("")
+            else:
+                out.append(f"{racer.name} : {racer.heat_name}")
         return out
 
 
@@ -634,8 +646,12 @@ class Event:
         self.goto_next_race()
 
     def print_plan_yaml(self,
-                        file_name='race_plan.yaml'):
-        self.generate_race_plan()
+                        file_name='race_plan.yaml',
+                        revised_plan=None):
+        if revised_plan is None:
+            self.generate_race_plan()
+        else:
+            self.adopt_revised_plan(revised_plan)
 
         plan_dict = {
             'heats': [],
@@ -741,6 +757,63 @@ class Event:
                 self.current_race = self.races[0]
             except IndexError:
                 self.current_race = None
+
+    def parse_cell_text(self, text):
+        racer_name, heat_name = text.split(":")
+        out_heat = self.heats[-1]
+        out_racer = out_heat.racers[0]
+        for heat in self.heats:
+            if heat.name in heat_name:
+                out_heat = heat
+                break
+        for racer in out_heat.racers:
+            if racer.name in racer_name:
+                out_racer = racer
+                break
+        if racer.heat_name in heat_name:
+            return out_heat, out_racer
+        else:
+            return self.heats[-1], self.heats[-1].racers[0]
+
+    def create_race_from_list(self, race_list, idx):
+        racers = []
+        heats = []
+        is_empty = []
+        empty_idx = 0
+        for entry in race_list:
+            heat, racer = self.parse_cell_text(entry)
+            heats.append(heat)
+            if heats[-1] is self.heats[-1]:
+                is_empty.append(True)
+                racers.append(self.heats[-1].racers[empty_idx])
+                empty_idx += 1
+            else:
+                is_empty.append(False)
+                racers.append(racer)
+        return Race(heats, racers, idx, is_empty)
+
+    def adopt_revised_plan(self, revised_plan):
+        new_races = []
+
+        for idx, race in enumerate(revised_plan):
+            new_races.append(self.create_race_from_list(race, idx))
+
+        self.races = new_races
+
+        if self.current_race is None:
+            try:
+                self.current_race = self.races[0]
+            except IndexError:
+                self.current_race = None
+
+    def get_race_plan(self):
+        self.generate_race_plan()
+
+        out_list = []
+        for idx, race in enumerate(self.races):
+            out_list.append(race.get_racer_list([]))
+
+        return out_list
 
 
 # DATA LOAD

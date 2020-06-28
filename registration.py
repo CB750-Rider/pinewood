@@ -24,8 +24,9 @@ import tkinter as tk
 from race_event import Event, Heat, Racer
 import argparse
 import datetime
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, ttk
 import os
+import tksheet
 
 description = "A Graphical Interface for setting up Pinewood Derby Races"
 
@@ -66,14 +67,18 @@ class RegistrationWindow:
 
         top.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.running = True
+        self.autogenerate_race_plan = tk.IntVar(value=True)
 
         self.create_menubar(top)
 
+        self.race_list = RaceList(self)
+
         self.racer_list = RacerList(self)
 
-        self.heat_list = HeatList(self, self.racer_list)
+        self.heat_list = HeatList(self)
 
         self.active_heat = None
+        self.active_racer = None
 
         self.set_heat_pane()
 
@@ -98,26 +103,70 @@ class RegistrationWindow:
         self.active_heat = None
         self.set_heat_pane()
         self.check_racer_pane()
+        self.race_list.load_race_plan()
 
     def save_as(self):
         self.out_file_name = filedialog.asksaveasfilename()
         self.save()
 
     def save(self):
-        self.event.print_plan_yaml(self.out_file_name)
+        self.check_revised_plan()
+        self.event.print_plan_yaml(self.out_file_name,
+                                   revised_plan=self.race_list.sheet_data)
+
+    def check_revised_plan(self):
+        problems = []
+        for heat in self.event.heats[:-1]:
+            for racer in heat.racers:
+                race_count = self.race_list.count_races(racer)
+                if race_count != self.event.n_lanes:
+                    problems.append({
+                        "Racer": racer,
+                        "race_count": race_count
+                    })
+        if len(problems) == 0:
+            messagebox.showinfo(title="Passed",
+                                message="No problems were found with the plan.")
+        else:
+            ec = self.event.n_lanes
+            if ec == 1:
+                tail = f"but should race once."
+            else:
+                tail = f"but should race {ec} times."
+            for pi, problem in enumerate(problems):
+                name = problem['Racer'].name
+                heat = problem['Racer'].heat_name
+                count = problem['race_count']
+                if count == 1:
+                    message = f"{name} from {heat} races {count} time {tail}"
+                else:
+                    message = f"{name} from {heat} races {count} times {tail}"
+                messagebox.showerror(title=f"Error {pi+1} of {len(problems)}",
+                                     message=message)
+                if pi > 10:
+                    messagebox.showerror(title="More Errors",
+                                         message="Not showing any more errors")
 
     def on_closing(self):
         self.running = False
 
     def mainloop(self):
         self.top.mainloop()
-        return self.event, self.out_file_name
+        return self.event, self.out_file_name, self.race_list.sheet_data
 
     def check_racer_pane(self):
         cur_idx = self.heat_list.get_selected_heat_index()
+        racer_idx = self.racer_list.get_selected_racer_index()
         if cur_idx != self.active_heat:
             self.active_heat = cur_idx
             self.racer_list.set_racers_from_heat(self.active_heat)
+            self.race_list.remove_highlighting()
+        elif racer_idx != self.active_racer:
+            self.active_racer = racer_idx
+            if racer_idx >= 0:
+                racer = self.get_racer_by_index(racer_idx)
+                self.race_list.remove_highlighting()
+                self.race_list.highlight_racer(racer)
         if self.running:
             self.top.after(50, self.check_racer_pane)
         else:
@@ -264,6 +313,8 @@ class RacerDialog:
 
         heat_idx = self.event.heat_index(heat=self.original_heat)
         self.parent.racer_list.set_racers_from_heat(heat_idx)
+        if self.parent.autogenerate_race_plan.get():
+            self.parent.race_list.load_race_plan()
         self._window.destroy()
 
     def set_heat(self, value):
@@ -344,24 +395,34 @@ class RacerList:
         self.top = top
         self.parent = parent
         self._outer_frame = tk.Frame(top)
-        self._outer_frame.pack(fill=tk.BOTH, expand=True, side=tk.RIGHT)
-        title = tk.Label(self._outer_frame, text="Racers", font=('Serif', 22))
-        title.pack(expand=True, fill=tk.X)
+        self._outer_frame.pack(fill=tk.BOTH, expand=False, side=tk.RIGHT)
+        title = tk.Label(self._outer_frame, text="Racers", font=('Serif', 18))
+        title.pack(expand=False, fill=tk.X)
         self.list_box = tk.Listbox(self._outer_frame, selectmode=tk.SINGLE,
                                    exportselection=False)
-        self.list_box.pack(expand=True, fill=tk.BOTH)
+        self.list_box.pack(expand=False, fill=tk.BOTH)
 
-        edit_button = tk.Button(self._outer_frame, text="Edit", font=('Serif', 16),
+        edit_button = tk.Button(self._outer_frame, text="Edit", font=('Serif', 18),
                                 command=self.edit_selected_racer)
         edit_button.pack(fill=tk.X, pady=2)
 
-        add_button = tk.Button(self._outer_frame, text="Add", font=('Serif', 16),
+        add_button = tk.Button(self._outer_frame, text="Add", font=('Serif', 18),
                                command=self.add_racer)
         add_button.pack(fill=tk.X, pady=2)
 
-        delete_button = tk.Button(self._outer_frame, text="Delete", font=('Serif', 16),
+        delete_button = tk.Button(self._outer_frame, text="Delete", font=('Serif', 18),
                                   command=self.delete_selection)
         delete_button.pack(fill=tk.X, pady=16)
+
+        generate_plan = tk.Button(self._outer_frame, text="Create Plan",
+                                  font=("Serif", 18),
+                                  command=self.parent.race_list.load_race_plan)
+        generate_plan.pack(fill=tk.X)
+
+        check_plan = tk.Button(self._outer_frame, text="Check Plan",
+                               font=("Serif", 18),
+                               command=self.parent.check_revised_plan)
+        check_plan.pack(fill=tk.X)
 
         self.set_racers_from_heat(-1)
 
@@ -405,6 +466,8 @@ class RacerList:
                 else:
                     if heat_idx_a == heat_idx_b:
                         self.parent.racer_list.set_racers_from_heat(heat_idx_a)
+                        if self.parent.autogenerate_race_plan.get():
+                            self.parent.race_list.load_race_plan()
 
     def edit_selected_racer(self):
         idx = self.get_selected_racer_index()
@@ -414,30 +477,35 @@ class RacerList:
 
 
 class HeatList:
-    def __init__(self, parent: RegistrationWindow, racer_list: RacerList):
+    def __init__(self, parent: RegistrationWindow):
         top = parent.top
         self.parent = parent
         self.top = top
         self._outer_frame = tk.Frame(top)
-        self._outer_frame.pack(fill=tk.BOTH, expand=True, side=tk.RIGHT)
-        title = tk.Label(self._outer_frame, text="Heats", font=('Serif', 22))
-        title.pack(expand=True, fill=tk.X)
+        self._outer_frame.pack(fill=tk.BOTH, expand=False, side=tk.RIGHT)
+        title = tk.Label(self._outer_frame, text="Heats", font=('Serif', 18))
+        title.pack(expand=False, fill=tk.X)
 
         self.list_box = tk.Listbox(self._outer_frame, selectmode=tk.SINGLE,
                                    exportselection=False)
-        self.list_box.pack(expand=True, fill=tk.BOTH)
+        self.list_box.pack(expand=False, fill=tk.BOTH)
 
-        edit_button = tk.Button(self._outer_frame, text="Edit", font=('Serif', 16),
+        edit_button = tk.Button(self._outer_frame, text="Edit", font=('Serif', 18),
                                 command=self.edit_selected_heat)
         edit_button.pack(fill=tk.X, pady=2)
 
-        add_button = tk.Button(self._outer_frame, text="Add", font=('Serif', 16),
+        add_button = tk.Button(self._outer_frame, text="Add", font=('Serif', 18),
                                command=self.add_heat)
         add_button.pack(fill=tk.X, pady=2)
 
-        delete_button = tk.Button(self._outer_frame, text="Delete", font=('Serif', 16),
+        delete_button = tk.Button(self._outer_frame, text="Delete", font=('Serif', 18),
                                   command=self.delete_selection)
         delete_button.pack(fill=tk.X, pady=16)
+
+        ag_selector = tk.Checkbutton(self._outer_frame,
+                                     text="Autogen Race Plan",
+                                     variable=self.parent.autogenerate_race_plan)
+        ag_selector.pack(fill=tk.X)
 
         self.update_heat_list()
 
@@ -476,12 +544,80 @@ class HeatList:
                     return
                 else:
                     self.parent.heat_list.update_heat_list()
+                    if self.parent.autogenerate_race_plan.get():
+                        self.parent.race_list.load_race_plan()
 
     def edit_selected_heat(self):
         idx = self.get_selected_heat_index()
         if idx >= 0:
             heat = self.parent.event.heats[idx]
             HeatDialog(self.parent, heat=heat)
+
+
+class RaceList:
+    def __init__(self,
+                 parent: RegistrationWindow):
+        top = parent.top
+        self.parent = parent
+        self.top = top
+        self._outer_frame = tk.Frame(top)
+
+        headers = ["Lane 1", "Lane 2", "Lane 3", "Lane 4"]
+
+        self.sheet = tksheet.Sheet(self._outer_frame,
+                                   headers=headers,
+                                   column_width=240,
+                                   width=900
+                                   )
+        self._outer_frame.pack(fill=tk.BOTH, expand=True, side=tk.RIGHT)
+
+        self.sheet.pack(fill=tk.BOTH, expand=True)
+
+        self.sheet.enable_bindings(("single_select",
+                                    "row_select",
+                                    "column_width_resize",
+                                    "arrowkeys",
+                                    "right_click_popup_menu",
+                                    "rc_select",
+                                    "rc_insert_row",
+                                    "rc_delete_row",
+                                    "copy",
+                                    "cut",
+                                    "paste",
+                                    "delete",
+                                    "undo",
+                                    "edit_cell"))
+
+        self.sheet_data = self.sheet.set_sheet_data(
+            self.parent.event.get_race_plan()
+        )
+
+        self.highlighted_cells = []
+
+    def load_race_plan(self):
+        race_plan = self.parent.event.get_race_plan()
+        self.sheet_data = self.sheet.set_sheet_data(race_plan)
+
+    def remove_highlighting(self):
+        self.sheet.dehighlight_cells(row='all')
+
+    def highlight_racer(self, racer):
+        cell_str = f"{racer.name} : {racer.heat_name}"
+        for ri, row in enumerate(self.sheet_data):
+            for ci, entry in enumerate(row):
+                if entry == cell_str:
+                    self.sheet.highlight_cells(row=ri, column=ci,
+                                               bg="#ed4337", fg="white")
+        self.sheet.redraw()
+
+    def count_races(self, racer):
+        count = 0
+        cell_str = f"{racer.name} : {racer.heat_name}"
+        for ri, row in enumerate(self.sheet_data):
+            for ci, entry in enumerate(row):
+                if entry == cell_str:
+                    count += 1
+        return count
 
 
 class SaveWindow:
@@ -543,7 +679,7 @@ if __name__ == "__main__":
     main_window = RegistrationWindow(tk.Tk(),
                                      event_file=cli_args.event_file)
 
-    event, file_name = main_window.mainloop()
+    event, file_name, plan = main_window.mainloop()
 
     if cli_args.save_action == 'ask':
         save_window = SaveWindow(tk.Tk(), file_name)
@@ -556,4 +692,4 @@ if __name__ == "__main__":
         out_frame = None
 
     if out_fname is not None:
-        event.print_plan_yaml(out_fname)
+        event.print_plan_yaml(out_fname, revised_plan=plan)
