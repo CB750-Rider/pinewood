@@ -45,6 +45,7 @@ class Racer:
     global default_heat_name
 
     def __init__(self,
+                 car_number=0,
                  name="No_Name",
                  rank="No_Rank",
                  heat_name=default_heat_name,
@@ -61,17 +62,38 @@ class Racer:
         self.race_plan_nums = np.zeros(self.n_lanes)
         self.race_log_nums = np.zeros(self.n_lanes)
         self.race_positions = np.zeros(self.n_lanes)
+        self.car_number = car_number
         self.hist = {}
         if car_status is None:
             self.car_status = {
-                'passed_weight': False,
-                'weight': 0.0,
-                'passed_length': False,
-                'passed_height': False,
-                'passed_underbody_clearance': False,
-                'passed_width': False,
-                'passed_nose': False,
-                'passed_wheels': False,
+                'passed_weight': [False, 'less than 5 oz.'],
+                'passed_length': [False, 'less than 7"'],
+                'passed_height': [False, 'less than 3 1/2"'],
+                'passed_underbody_clearance': [False, 'greater than 3/8"'],
+                'passed_width': [False, 'less than 2 3/4"'],
+                'wheel_diameter': [False, 'greater than 1.170"'],
+                'wheel_base': [False, 'less than 4 3/4" (axle to axle)'],
+                'passed_nose': [False, 'no notch'],
+                'questions': {
+                    'made_this_year': False,
+                    'use_kit_nail': False,
+                    'use_official_wheel': False,
+                    'no_liquid_lubricant': False,
+                    'no_loose_materials': False,
+                    'no_wheel_bearings': False,
+                    'no_wheel_washers': False,
+                    'no_solid_axles': False,
+                    'no_springs_or_shocks': False,
+                    'no_removal_of_wheel_tread': False,
+                    'no_rounding_of_outside_wheel_edge': False,
+                    'no_rounding_of_inside_wheel_edge': False,
+                    'no_rounding_of_the_inside_wheel_hub': False,
+                    'no_bore_or_cone_for_the_wheel_hub': False,
+                    'no_dome_on_outside_hub': False,
+                    'no_wheel_reshaping': False,
+                    'no_nail_groove': False,
+                    'no_graphite_paint_on_nail': False
+                },
                 'notes': ''
             }
         else:
@@ -156,6 +178,17 @@ class Racer:
         self.race_log_nums = np.zeros(self.n_lanes)
         self.race_plan_nums = np.zeros(self.n_lanes)
         self.race_positions = np.zeros(self.n_lanes)
+
+    def passed_inspection(self):
+        for key in self.car_status.keys():
+            if key == 'questions' or key == 'notes' or self.car_status[key]:
+                continue
+            return False
+        for key in self.car_status['questions'].keys():
+            if self.car_status['questions'][key]:
+                continue
+            return False
+        return True
 
 
 class Heat:

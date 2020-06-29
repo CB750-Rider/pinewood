@@ -31,11 +31,8 @@ The Race Manager is the code that runs on Race Day. It logs the results and lets
 
 ### Registration
 
-The Registration code should be run in the days (maybe even hours) leading up to the race. This is were we set up all our entries and check to make sure the cars are set up properly.
+The Registration code should be run in the days (maybe even hours) leading up to the race. This is were we set up all our entries, the race schedule, and check to make sure the cars are set up properly. 
 
-### Schedule Manager
-
-This Schedule Manager is not written yet. It will let you adjust the auto-generated race schedule.
 
 ### Timer Simulation
 
@@ -46,9 +43,9 @@ This is a convenience application for developers. It simulates the timers so tha
   1. Convert the race log to yaml. <- Skipping for now. I don't see a huge benefit
   2. Improve this README
   3. Create a tool to print the race plan & current stats
-  5. Add a GUI interface for adding/editing races.
   6. Add the ability to add championship heats
   7. Add a web interface for scout families to see their progress.
-  8. Finally, convert the applications to a web interface
+  8. Convert the applications to a web interface
   9. Refactor the messy Race Manager GUI code to better use classes.
+  10. Remove the check to see if you want to save when closing
 

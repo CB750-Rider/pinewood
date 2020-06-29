@@ -35,7 +35,7 @@ parser.add_argument('--event_file', help='A file with the event plan listed.',
                     default=None)
 parser.add_argument('--save_action',
                     help="Define what to do when we close. Options are ask, overwrite, new_file, and no_save.",
-                    default='ask')
+                    default='None')
 
 
 def new_fname(old_name):
@@ -141,7 +141,7 @@ class RegistrationWindow:
                     message = f"{name} from {heat} races {count} time {tail}"
                 else:
                     message = f"{name} from {heat} races {count} times {tail}"
-                messagebox.showerror(title=f"Error {pi+1} of {len(problems)}",
+                messagebox.showerror(title=f"Error {pi + 1} of {len(problems)}",
                                      message=message)
                 if pi > 10:
                     messagebox.showerror(title="More Errors",
@@ -200,7 +200,10 @@ class RacerDialog:
         self.parent = parent
         self._window = tk.Toplevel(parent.top)
 
-        heat_idx = parent.heat_list.get_selected_heat_index()
+        if racer is None:
+            heat_idx = parent.heat_list.get_selected_heat_index()
+        else:
+            heat_idx = parent.event.heat_index(heat_name=racer.heat_name)
         if heat_idx < 0:
             text = tk.Label(self._window, text="Please, select a heat before attempting to add a racer",
                             font=("Serif", 14))
@@ -221,8 +224,7 @@ class RacerDialog:
 
             self.name_field = self.text_input("Name", 25, racer.name)
             self.rank_field = self.text_input("Rank", 25, racer.rank)
-
-            self.car_weight = self.text_input("Car Weight", 15, "0.0")
+            self.car_number_field = self.text_input("Car Number", 15, str(racer.car_number))
 
             self.car_status = self.car_status_list(racer.car_status)
 
@@ -243,7 +245,10 @@ class RacerDialog:
             self.heat_selector = self.option_input(option_frame,
                                                    "Select Heat",
                                                    heat_options)
-            self.heat_selector.pack()
+            self.heat_selector.pack(side=tk.RIGHT)
+
+            clear = tk.Button(option_frame, text="Clear Inspection", command=self.clear_inspection)
+            clear.pack(side=tk.RIGHT)
 
             cancel = tk.Button(bottom_frame, text="Cancel", command=self._window.destroy)
             cancel.pack(side=tk.RIGHT)
@@ -271,13 +276,12 @@ class RacerDialog:
     def car_status_list(self, status_dict: dict):
         out_dict = status_dict.copy()
 
-        idx = 0
         for key in status_dict.keys():
-            if key == 'weight' or key == 'notes':
+            if key == 'questions' or key == 'notes':
                 continue
             frame = tk.Frame(self.frame)
             frame.pack(expand=True, anchor=tk.W)
-            out_dict[key] = tk.IntVar(frame, value=status_dict[key])
+            out_dict[key] = tk.IntVar(frame, value=status_dict[key][0])
             text = ' '.join(key.split('_'))
             gap = tk.Label(frame, width=9)
             gap.pack(side=tk.LEFT, expand=False)
@@ -286,25 +290,46 @@ class RacerDialog:
                                           variable=out_dict[key]
                                           )
             check_button.pack(padx=2, anchor=tk.W, side=tk.LEFT)
-            idx += 1
+            label = tk.Label(frame, text=status_dict[key][1])
+            label.pack(side=tk.LEFT)
+        for key in status_dict['questions'].keys():
+            frame = tk.Frame(self.frame)
+            frame.pack(expand=True, anchor=tk.W)
+            out_dict[key] = tk.IntVar(frame, value=status_dict['questions'][key])
+            text = ' '.join(key.split('_'))
+            gap = tk.Label(frame, width=9)
+            gap.pack(side=tk.LEFT, expand=False)
+            check_button = tk.Checkbutton(frame,
+                                          text=text,
+                                          variable=out_dict[key]
+                                          )
+            check_button.pack(padx=2, anchor=tk.W, side=tk.LEFT)
         return out_dict
+
+    def clear_inspection(self):
+        for key in self.car_status.keys():
+            if key == 'questions' or key == 'notes':
+                continue
+            self.car_status[key].set(0)
 
     def accept(self):
         self.racer.name = self.name_field.get()
         self.racer.rank = self.rank_field.get()
         try:
-            self.racer.car_status['weight'] = float(self.car_weight.get())
+            self.racer.car_number = int(self.car_number_field.get())
         except ValueError:
             error_text = tk.Label(self.hidden_frame,
-                                  text="Unable to convert the car weight to float.",
+                                  text="Unable to convert the car number to int.",
                                   fg='red',
                                   bg='black')
             return
         self.car_status['notes'] = self.notes.get(1.0, tk.END)
         for key in self.racer.car_status.keys():
-            if key == 'notes' or key == 'weight':
+            if key == 'questions' or key == 'notes':
                 continue
-            self.racer.car_status[key] = bool(self.car_status[key])
+            self.racer.car_status[key][0] = bool(self.car_status[key].get())
+        for key in self.racer.car_status['questions'].keys():
+            self.racer.car_status['questions'][key] = bool(self.car_status[key].get())
 
         if self.heat is not self.original_heat:
             self.original_heat.remove_racer(racer=self.racer)
@@ -441,6 +466,8 @@ class RacerList:
     def add_racers_from_heat(self, heat: Heat):
         for racer in heat.racers:
             self.list_box.insert(tk.END, racer.name)
+            if not racer.passed_inspection():
+                self.list_box.itemconfigure(tk.END, fg='red')
 
     def get_selected_racer_index(self):
         selected_value = self.list_box.curselection()
@@ -689,7 +716,7 @@ if __name__ == "__main__":
     elif cli_args.save_action == 'new_file':
         out_fname = new_fname(cli_args.event_file)
     else:
-        out_frame = None
+        out_fname = None
 
     if out_fname is not None:
         event.print_plan_yaml(out_fname, revised_plan=plan)
