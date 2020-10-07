@@ -170,7 +170,6 @@ class Racer:
     def save_heat(self):
         self.hist[self.heat] = [self.race_log_nums, self.race_plan_nums,
                                 self.race_times, self.race_positions]
-
     def clear_races(self):
         if self.get_worst() > 0.0:
             self.save_heat()

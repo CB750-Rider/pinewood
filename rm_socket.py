@@ -24,6 +24,7 @@ import socket
 import tkinter as tk
 import time
 
+
 class TimerComs:
     def __init__(self,
                  parent: tk.Tk,
@@ -39,7 +40,7 @@ class TimerComs:
         self.ports = [int(x) for x in range(n_lanes)]
         self.is_conn = [False for _ in range(n_lanes)]
         self.sockets = [socket.socket(socket.AF_INET, socket.SOCK_STREAM) for _ in range(4)]
-        self.parent=parent
+        self.parent = parent
         self.reset_lane = reset_lane
 
         if addresses is not None:
@@ -119,4 +120,3 @@ class TimerComs:
     def get_data_from_socket(self, open_socket):
         socket_data = open_socket.recv(64)
         return socket_data
-
