@@ -116,7 +116,7 @@ def close_manager():
 if __name__ == "__main__":
     #    global infile,host,port,race_ready
     end_program = False
-    s = [[], [], [], []]
+    sockets_ = [[], [], [], []]
     cb = [[], [], [], []]
     conn = [[], [], [], []]
     addr = [[], [], [], []]
@@ -148,11 +148,11 @@ if __name__ == "__main__":
 
     for i in range(4):
         print("Setting up connection to {}:{}".format(host[i], port[i]))
-        s[i] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s[i].bind((host[i], port[i]))
-        s[i].listen(2)
+        sockets_[i] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sockets_[i].bind((host[i], port[i]))
+        sockets_[i].listen(2)
         print("Awaiting connection on {}:{}".format(host[i], port[i]))
-        conn[i], addr[i] = s[i].accept()
+        conn[i], addr[i] = sockets_[i].accept()
         print("Connection from {} established.".format(addr[i]))
 
     connections_ready = True
