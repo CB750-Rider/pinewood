@@ -23,9 +23,15 @@ from typing import List
 import socket
 import tkinter as tk
 import time
+import select
 
 
 class TimerComs:
+    n_lanes: int = 0
+    hosts: list = []
+    ports: list = []
+    sockets: list = []
+
     def __init__(self,
                  parent: tk.Tk,
                  addresses: List[str] = None,
@@ -51,7 +57,8 @@ class TimerComs:
 
     def shutdown(self):
         for i in range(self.n_lanes):
-            self.sockets[i].shutdown(socket.SHUT_RDWR)
+            self.sockets[i].close()
+            #self.sockets[i].shutdown(socket.SHUT_RDWR)
 
     def get_hosts_and_ports(self, hosts_file):
         # TODO Add YAML parser
@@ -65,7 +72,7 @@ class TimerComs:
     def set_address(self, idx, address):
         ip, port = address.split(':')
         self.ports[idx] = int(port)
-        self.set_address[idx] = ip
+        self.hosts[idx] = ip
 
     def connect(self):
         return self.connect_to_track_hosts()
@@ -91,13 +98,17 @@ class TimerComs:
                     db.config(text="""Attempting to connect to
                                   {}:{}""".format(self.hosts[i], self.ports[i]))
                     popup.update()
-                    print("Attempting to connect to {}:{}".format(self.hosts[i], self.ports[i]))
+                    print("Attempting to connect to {}:{}".format(
+                        self.hosts[i], self.ports[i]))
                     try:
                         self.sockets[i].connect((self.hosts[i], self.ports[i]))
-                    except:
+                    except InterruptedError:
+                        continue
+                    except ConnectionRefusedError:
                         continue
                 self.is_conn[i] = True
-                print("Connection from {}:{} established.".format(host[i], port[i]))
+                print("Connection from {}:{} established.".format(
+                    self.hosts[i], self.ports[i]))
                 rb[i].config(**{'fg': '#18ff00', 'bg': '#000000'})
                 time.sleep(0.1)
             if not all(self.is_conn):
@@ -108,15 +119,28 @@ class TimerComs:
         popup.destroy()
 
     def send_reset_to_track(self, accept=False):
-        global sockets_, race_needs_written, race_running
-        race_running = [False, False, False, False]
-        self.parent.enable_navigation()
-        if self.parent.race_needs_written:
-            self.parent.record_race_results(accept=accept)
-            self.parent.race_needs_written = False
         print("Sending Reset to the Track")
         self.sockets[self.reset_lane].sendall("<reset>".encode('utf-8'))
 
     def get_data_from_socket(self, open_socket):
         socket_data = open_socket.recv(64)
         return socket_data
+
+    def select(self, wait_len=0.05):
+        return select.select(self.sockets, self.sockets, self.sockets, wait_len)
+
+    def socket_index(self, test_socket):
+        for i, sc in enumerate(self.sockets):
+            if test_socket == sc:
+                return i
+        raise ValueError("Unable to find a matching socket.")
+
+    def sockets_are_in_list(self, test_list):
+        results = [False] * self.n_lanes
+        for idx, sc in enumerate(self.sockets):
+            results[idx] = sc in test_list
+        return results
+
+
+
+

@@ -25,7 +25,6 @@ from typing import List
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog
-import select
 from race_event import Event
 import argparse
 from rm_socket import TimerComs
@@ -57,7 +56,6 @@ race_ready = [False, False, False, False]  # "Yellow LED"
 race_complete = [True, True, True, True]  # "Red LED"
 race_running = [False, False, False, False]  # "Green LED"
 reset_msg = "<reset>\n".encode('utf-8')
-sockets_ = [[], [], [], []]  # Socket connections
 s_conn = [False, False, False, False]  # Socket connection flags
 small_font = ("Serif", 12)
 med_font = ("Serif", 16)
@@ -65,7 +63,8 @@ large_font = ("Serif", 22)
 program_running = True
 race_needs_written = False
 block_loading_previous_times = False
-req_win = None
+req_win: tk.Toplevel
+timer_coms: TimerComs
 
 
 # GUI STUFF
@@ -74,14 +73,13 @@ class RaceSelector:
     race_menu: tk.OptionMenu = None
     add_reset_button: tk.Button = None
     current_race_str: tk.StringVar = None
-    active_race_idx: int = 0
-    race_count: int = 0
+    active_race_idx: int = 0  # The number that shows in the drop-down under Race Log #
     event: Event = None
 
     def __init__(self,
                  outer_frame: tk.Frame,
                  parent):
-        global timer_coms
+        global timer_coms, race_count
         race = parent.event.current_race
         self.event = parent.event
         rt = tk.Frame(outer_frame)
@@ -93,23 +91,23 @@ class RaceSelector:
             option_list.append(self.event.current_race_log_idx)
         else:
             option_list = [str(self.event.current_race_log_idx), ]
-        current_race_str = tk.StringVar(rt)
+        self.current_race_str = tk.StringVar(rt)
         if race.accepted_result_idx >= 0:
             idx = race.accepted_result_idx
             option_list[idx] += ' < ACC'
             self.active_race_idx = race.race_number[idx]
-            current_race_str.set(option_list[idx])
-            self.race_count = self.event.current_race.counts[idx]
+            self.current_race_str.set(option_list[idx])
+            race_count[idx] = self.event.current_race.counts[idx]
         else:
-            current_race_str.set(option_list[-1])
+            self.current_race_str.set(option_list[-1])
             self.active_race_idx = self.event.current_race_log_idx
-        current_race_str.trace("w", self.load_previous_times)
-        race_selector = tk.OptionMenu(rt, current_race_str, "0", *option_list,
+        self.current_race_str.trace("w", self.load_previous_times)
+        race_selector = tk.OptionMenu(rt, self.current_race_str, "0", *option_list,
                                       command=parent.update_race_display(new_race=False))
         race_selector.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
         self.race_menu = race_selector
         # TODO Should the send_reset_to_track accept?
-        b = tk.Button(rt, text="add/reset", command=timer_coms.send_reset_to_track, font=small_font)
+        b = tk.Button(rt, text="add/reset", command=send_reset_to_track, font=small_font)
         b.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
         self.add_reset_button = b
         rt.pack(fill=tk.X)
@@ -225,11 +223,11 @@ class TrackStatusIndicator:
                  idx: int,
                  parent):
         global race_ready, race_running
-        self.parent = parent
+        self.parent = parent  # Parent is RaceTimes
         self.idx = idx
         self.background = background
         self.top = top
-        si = tk.Frame(parent, bg=background)
+        si = tk.Frame(top, bg=background)
         self.frame = si
         print("Updating the track status")
         if race_ready[idx]:
@@ -262,28 +260,28 @@ class TrackStatusIndicator:
             self.running.config(**self.not_running)
             self.complete.config(**self.not_complete)
             if new_race:
-                parent.reset_race_time_display(idx)
-                parent.reset_placement_display(idx)
+                parent.reset_race_time_display()
+                parent.reset_placement_display()
             else:
-                parent.update_race_time_display(idx)
-                parent.update_placement_display(idx)
+                parent.update_race_time_display()
+                parent.update_placement_display()
         else:
             self.ready.config(**self.not_ready)
             if race_running[idx]:
-                parent.controls_row.disable_navigation()
+                parent.parent.parent.controls_row.disable_navigation()
                 self.running.config(**self.race_is_running)
                 self.complete.config(**self.not_complete)
                 if new_race:
-                    parent.reset_race_time_display(idx)
-                    parent.reset_placement_display(idx)
+                    parent.reset_race_time_display()
+                    parent.reset_placement_display()
                 else:
-                    parent.update_race_time_display(idx)
-                    parent.update_placement_display(idx)
+                    parent.update_race_time_display()
+                    parent.update_placement_display()
             else:
                 self.running.config(**self.not_running)
                 self.complete.config(**self.race_complete)
-                parent.update_race_time_display(idx)
-                parent.update_placement_display(idx)
+                parent.update_race_time_display()
+                parent.update_placement_display()
 
 
 class RaceTimes:
@@ -299,10 +297,10 @@ class RaceTimes:
                  idx: int,
                  parent):
         global large_font
-        self.parent = parent
+        self.parent = parent  # Parent is times column
         self.idx = idx
         self.top = top
-        colors = self.parent.colors
+        colors = self.parent.parent.lane_colors
         self.colors = colors
 
         rt = tk.Frame(top)
@@ -310,7 +308,7 @@ class RaceTimes:
         w = tk.Label(rt, text="Lane {0}".format(idx + 1),
                      bg=colors[idx], font=large_font)
         w.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
-        self.status_indicator = TrackStatusIndicator(rt, colors[idx], idx, parent)
+        self.status_indicator = TrackStatusIndicator(rt, colors[idx], idx, self)
         self.status_indicator.frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
         res_frm = tk.Frame(rt)
         if parent.event.current_race.times:  # If times were posted
@@ -336,15 +334,16 @@ class RaceTimes:
         self.race_time_display.config(self.race_time_default)
 
     def update_race_time_display(self):
-        if self.parent.race_count[self.idx]:
-            final_time = self.parent.race_count[self.idx] / self.parent.clock_rate
+        global race_count
+        if race_count[self.idx]:
+            final_time = race_count[self.idx] / self.parent.parent.clock_rate
             self.race_time_display.config(text="{0:.3f}".format(final_time), fg='#000000')
         else:
             self.race_time_display.config(**self.race_time_default)
 
     def update_placement_display(self):
         global placement_displays, placements
-        if self.parent.placements[self.idx] >= 0:
+        if placements[self.idx] >= 0:
             self.placement_display.config({"bg": self.colors[self.idx]})
             self.placement_display.config(self.placement_settings[placements[self.idx]])
         else:
@@ -360,16 +359,19 @@ class RaceTimes:
 class TimesColumn:
     race_selector: RaceSelector = None
     mf: tk.Frame = None
+    event: Event
 
     def __init__(self,
-                 parent):
+                 parent,
+                 parent_widget):
         global widths, large_font
-        self.parent = parent
-        tc = tk.Frame(parent.window, width=widths["Times Column"])
+        self.parent = parent  # Parent is RaceManagerGUI
+        self.event = parent.event
+        tc = tk.Frame(parent_widget, width=widths["Times Column"])
         w = tk.Label(tc, text="Times", font=large_font)
         w.pack(fill=tk.X)
         self.race_selector = RaceSelector(tc, parent)
-        self.race_times = [RaceTimes(tc, ri, parent) for ri in range(parent.n_lanes)]
+        self.race_times = [RaceTimes(tc, ri, self) for ri in range(parent.n_lanes)]
         for rt in self.race_times:
             rt.frame.pack(fill=tk.BOTH, expand=1)
         self.mf = tc
@@ -377,9 +379,11 @@ class TimesColumn:
     def update_track_status_indicator(self, idx, new_race=True):
         self.race_times[idx].status_indicator.update(new_race=new_race)
 
-    def update_track_status_indicators(self, new_race=True):
+    def update(self, new_race=True):
         for rt in self.race_times:
             rt.status_indicator.update(new_race=new_race)
+            rt.update_race_time_display()
+            rt.update_placement_display()
 
     def reset_race_time_display(self, idx):
         self.race_times[idx].reset_race_time_display()
@@ -395,24 +399,26 @@ class TimesColumn:
 
 
 class RaceColumn:
-    racer_id: List[tk.Label] = []
+    racer_id: List
     title: tk.Label = None
-    column_label = tk.Label = None
+    column_label: tk.Label = None
     mf: tk.Frame = None
 
     def __init__(self,
                  parent,
+                 parent_widget,
                  title: str,
                  chips: list):
         global widths
         self.parent = parent
-        rc = tk.Frame(parent.window, width=widths["Race Column"])
+        rc = tk.Frame(parent_widget, width=widths["Race Column"])
         self.title = tk.Label(rc, text=title, font=large_font)
         self.title.pack(fill=tk.X)
         bc = tk.Frame(rc, height=widths["Top Spacer"])
         self.column_label = tk.Label(bc, text="00", font=("Serif", 18))
         self.column_label.pack(fill=tk.X)
         bc.pack(fill=tk.X)
+        self.racer_id = []
         for j in range(parent.n_lanes):
             self.racer_id.append(tk.Label(rc, bg=parent.lane_colors[j], **chips[j]))
             self.racer_id[j].pack(fill=tk.BOTH, expand=1)
@@ -453,7 +459,7 @@ class ControlsRow:
 
 class RaceManagerGUI:
     window_size = "1850x1024"
-    window: tk.Tk() = None
+    window: tk.Tk
     lane_colors = ["#1167e8", "#e51b00", "#e5e200", "#7fd23c"]
     n_lanes = 4
     timer_coms: TimerComs = None
@@ -463,11 +469,8 @@ class RaceManagerGUI:
     on_deck_column: RaceColumn = None
     next_up_column1: RaceColumn = None
     controls_row: ControlsRow = None
-    race_selector: RaceSelector = None
     event: Event = None
     clock_rate = 2000.0
-    race_count: List[int] = []
-    placements: List[int] = []
 
     def __init__(self,
                  hosts_file_name: str = None,
@@ -486,16 +489,10 @@ class RaceManagerGUI:
             )
 
         self.add_menu_bar()
-
-        self.race_count = [0 for _ in range(self.n_lanes)]
-        self.placements = [-1 for _ in range(self.n_lanes)]
-
         self.main_frame = tk.Frame(self.window, bg='black')
         self.load_main_frame()
         self.main_frame.pack(fill=tk.BOTH, expand=1)
-
         self.controls_row = ControlsRow(self.window)
-
         # Add window delete callback
         self.window.protocol("WM_DELETE_WINDOW", self.close_manager)
 
@@ -519,7 +516,7 @@ class RaceManagerGUI:
         menu.add_cascade(label="Settings", menu=settings_menu)
 
     def close_manager(self):
-        global race_needs_written
+        global race_needs_written, program_running
 
         print("close manager called")
         if race_needs_written:
@@ -529,23 +526,27 @@ class RaceManagerGUI:
         self.event.close_log_file()
         self.timer_coms.shutdown()
         self.running = False
+        program_running = False
 
     def load_main_frame(self):
-        self.times_column = TimesColumn(self)
+        self.times_column = TimesColumn(self, self.main_frame)
         self.times_column.mf.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
-        race_num = event.current_race_idx
-        self.racing_column = RaceColumn(self, "Racing", event.get_chips_for_race(race_num))
+        race_num = self.event.current_race_idx
+        self.racing_column = RaceColumn(self, self.main_frame,
+                                        "Racing", self.event.get_chips_for_race(race_num))
         self.racing_column.mf.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
-        self.on_deck_column = RaceColumn(self, "On Deck",
-                                         event.get_chips_for_race(race_num + 1))
+        self.on_deck_column = RaceColumn(self, self.main_frame, "On Deck",
+                                         self.event.get_chips_for_race(race_num + 1))
         self.on_deck_column.mf.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
-        self.next_up_column1 = RaceColumn(self, "Next Up",
-                                          event.get_chips_for_race(race_num + 2))
+        self.next_up_column1 = RaceColumn(self, self.main_frame, "Next Up",
+                                          self.event.get_chips_for_race(race_num + 2))
         self.next_up_column1.mf.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 
     def update_race_display(self, new_race=True):
         # global track_status_indicator, event, racing_column, on_deck_column, next_up_column1
-        self.times_column.update_track_status_indicators(new_race=new_race)
+        if self.times_column is None:
+            return
+        self.times_column.update(new_race=new_race)
 
         race_idx = event.current_race_idx
         self.racing_column.update(event.get_chips_for_race(race_idx), race_idx)
@@ -561,7 +562,17 @@ class RaceManagerGUI:
         self.next_up_column1.update(event.get_chips_for_race(race_idx), race_idx)
 
     def update_race_selector(self, show_accepted_race=True):
-        self.race_selector.update(show_accepted_race=show_accepted_race)
+        self.times_column.race_selector.update(show_accepted_race=show_accepted_race)
+
+    def set_active_race_idx(self, idx):
+        global block_loading_previous_times
+        self.times_column.race_selector.active_race_idx = idx
+        block_loading_previous_times = True
+        self.update_race_selector(show_accepted_race=False)
+        block_loading_previous_times = False
+
+    def get_active_race_idx(self):
+        return self.times_column.race_selector.active_race_idx
 
     def load_race_plan(self, *args):
         print("Write load_race_plan.")
@@ -580,6 +591,7 @@ class RaceManager:
     event: Event = None
     rm_gui: RaceManagerGUI = None
     coms: TimerComs = None
+    race_needs_written = False
 
     def __init__(self):
         print("Write RaceManager")
@@ -620,19 +632,19 @@ def open_racer_view_window():
 
 # RACE Functions
 def post_results():
-    global req_win, event, timer_coms, rm_gui
+    global req_win, event, rm_gui
     req_win.destroy()
     record_race_results(accept=True)  # TODO See if this can be removed. LRB
     # TODO March 7 2020
-    timer_coms.send_reset_to_track()
+    send_reset_to_track()
     rm_gui.update_race_display()
 
 
 def just_move_on():
-    global req_win, event, timer_coms, rm_gui
+    global req_win, event, rm_gui
     req_win.destroy()
     event.goto_next_race()
-    timer_coms.send_reset_to_track()
+    send_reset_to_track()
     rm_gui.update_race_display()
 
 
@@ -685,14 +697,14 @@ def accept_results():
     global rm_gui
     race_needs_written = True
     if all(race_complete):
-        timer_coms.send_reset_to_track(accept=True)
+        send_reset_to_track(accept=True)
         rm_gui.update_race_display(new_race=True)
     elif any(race_complete):
         request_to_post_results()
     else:
         print("{} {} {}".format(race_ready, race_running, race_complete))
         event.goto_next_race()
-        timer_coms.send_reset_to_track()
+        send_reset_to_track(accept=False)
         rm_gui.update_race_display(new_race=False)
 
 
@@ -723,9 +735,10 @@ def show_results():
 
 
 def record_race_results(accept=False):
-    global event, race_count, active_race_idx
+    global event, race_count
     global block_loading_previous_times, rm_gui
     print("record_race_results is called")
+    active_race_idx = rm_gui.get_active_race_idx()
     if event.current_race_log_idx is not active_race_idx:
         print("It looks like we are not current {} != {}.".format(
             event.current_race_log_idx, active_race_idx))
@@ -753,10 +766,17 @@ def record_race_results(accept=False):
     if any(race_count):
         times = [np.float(x) / rm_gui.clock_rate for x in race_count]
         event.record_race_results(times, race_count, accept)
-        active_race_idx = event.current_race_log_idx
-        block_loading_previous_times = True
-        rm_gui.update_race_selector(show_accepted_race=False)
-        block_loading_previous_times = False
+        rm_gui.set_active_race_idx(event.current_race_log_idx)
+
+
+def send_reset_to_track(accept=False):
+    global timer_coms, race_needs_written, rm_gui, race_running
+    timer_coms.send_reset_to_track(accept=accept)
+    if race_needs_written:
+        record_race_results(accept=accept)
+        race_needs_written = False
+    rm_gui.controls_row.enable_navigation()
+    race_running = [False] * rm_gui.n_lanes
 
 
 if __name__ == "__main__":
@@ -778,37 +798,22 @@ if __name__ == "__main__":
 
     while program_running:
         "Waiting for data from track hosts."
-        ready_sockets, open_sockets, error_sockets = select.select(
-            sockets_, sockets_, sockets_, 0.05)
+        ready_sockets, open_sockets, error_sockets = timer_coms.select(0.05)
         open_conn = [4]
         if len(open_sockets) != 4:
             print("Socket disconnection detected.")
-            for i in range(4):
-                if sockets_[i] in open_sockets:
-                    open_conn[i] = True
-                else:
-                    open_conn[i] = False
-                    print("Disconnect on socket {}".format(i))
+            open_conn = timer_coms.sockets_are_in_list(open_sockets)
             rm_gui.update_race_display(new_race=False)
             timer_coms.connect_to_track_hosts()
         for ready_socket in ready_sockets:
             data = timer_coms.get_data_from_socket(ready_socket)
-            s_idx = -1
-            for i, sc in enumerate(sockets_):
-                if ready_socket == sc:
-                    s_idx = i
-            if s_idx == -1:
-                print("Unable to determine which socket has data")
-                raise SystemExit
+            s_idx = timer_coms.socket_index(ready_socket)
             if 'Ready to Race'.encode('utf-8') in data:
                 if race_needs_written:
                     record_race_results()
                     race_needs_written = False
                 print("Track {} ready.".format(s_idx + 1))
-                active_race_idx = event.current_race_log_idx
-                block_loading_previous_times = True
-                rm_gui.update_race_selector(show_accepted_race=False)
-                block_loading_previous_times = False
+                rm_gui.set_active_race_idx(event.current_race_log_idx)
                 race_ready[s_idx] = True
                 race_running[s_idx] = False
                 race_complete[s_idx] = (False or
@@ -818,8 +823,7 @@ if __name__ == "__main__":
                 post_placements = True
             elif 'GO!'.encode('utf-8') in data:
                 race_needs_written = True
-                active_race_idx = event.current_race_log_idx  # Force a jump to the new race when started
-                rm_gui.update_race_selector(show_accepted_race=False)
+                rm_gui.set_active_race_idx(event.current_race_log_idx)  # Force a jump to the new race when started
                 rm_gui.update_race_display(new_race=True)
                 print("Track {} racing!".format(s_idx + 1))
                 race_ready[s_idx] = False
@@ -832,6 +836,7 @@ if __name__ == "__main__":
                 race_ready[s_idx] = False
                 race_running[s_idx] = False
                 race_complete[s_idx] = True
+                rm_gui.times_column.update_race_time_display(s_idx)
                 if all(race_complete):
                     rm_gui.controls_row.enable_navigation()
             else:

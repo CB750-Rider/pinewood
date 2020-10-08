@@ -370,6 +370,7 @@ class Event:
         self.races = []
         self.current_race = None
         self.current_race_idx = 0  # Race plan race number
+        self.current_race_log_idx = 0  # Race log race number
         self.last_race = 0
         self.plan_dictionary = None
         if event_file is not None:

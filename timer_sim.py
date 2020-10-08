@@ -68,9 +68,9 @@ def set_host_and_port():
 
 def race_reset():
     global race_ready, conn
-    for socket in conn:
-        socket.sendall(reset_msg)
-        socket.sendall(ready_msg)
+    for cn in conn:
+        cn.sendall(reset_msg)
+        cn.sendall(ready_msg)
     race_ready = True
 
 
@@ -86,8 +86,8 @@ def time_msg():
 
 
 def close_sockets(connection):
-    for socket in connection:
-        socket.close()
+    for cn in connection:
+        cn.close()
 
 
 def not_ready():
@@ -96,12 +96,12 @@ def not_ready():
 
 def run_race(conn):
     global report_lane
-    for socket in conn:
-        socket.sendall(go_msg)
+    for cn in conn:
+        cn.sendall(go_msg)
     time.sleep(3)
-    for idx, socket in enumerate(conn):
+    for idx, cn in enumerate(conn):
         if report_lane[idx].get():
-            socket.sendall(time_prefix + time_msg() + time_suffix)
+            cn.sendall(time_prefix + time_msg() + time_suffix)
         time.sleep(np.random.rand() / 2.0)
 
 
