@@ -1,3 +1,3 @@
 When 1st place ties, the program actually declares a winner. We need to investigate this and fix it.
 
-
+Add a "Connected" light under the name of each track so we can see that the socket is working.

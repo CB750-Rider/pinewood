@@ -28,6 +28,7 @@ from tkinter import filedialog
 from race_event import Event
 import argparse
 from rm_socket import TimerComs
+import time
 
 description = "A Graphical Interface for managing Pinewood Derby Races"
 
@@ -471,12 +472,17 @@ class RaceManagerGUI:
     controls_row: ControlsRow = None
     event: Event = None
     clock_rate = 2000.0
+    event_file_name: str = None
+    log_file_name: str = None
 
     def __init__(self,
                  hosts_file_name: str = None,
                  event_file_name: str = None,
                  log_file_name: str = None):
+
+        self.event_file_name = event_file_name
         self.event = Event(event_file_name, log_file_name, self.n_lanes)
+        self.log_file_name = self.event.log_file_name
 
         self.window = tk.Tk()
         self.window.title("Pack 402 Pinewood Derby")
@@ -505,14 +511,22 @@ class RaceManagerGUI:
         file_menu = tk.Menu(menu)
         file_menu.add_command(label="Generate Report", command=generate_report)
         open_menu = tk.Menu(file_menu)
-        open_menu.add_command(label="Race Plan", command=self.load_race_plan)
+        open_menu.add_command(label="Event File", command=self.load_event_file)
         open_menu.add_command(label="Race Log", command=self.load_race_log)
         open_menu.add_command(label="Timer Hosts", command=self.load_timer_hosts)
         file_menu.add_cascade(label="Open", menu=open_menu)
+        save_menu = tk.Menu(file_menu)
+        save_menu.add_command(label="Event File", command=self.save_event_file)
+        save_menu.add_command(label="Race Log", command=self.save_race_log)
+        save_menu.add_command(label="Timer Hosts", command=self.save_timer_hosts)
+        file_menu.add_cascade(label="Save", menu=save_menu)
         file_menu.add_command(label="Exit", command=self.close_manager)
         menu.add_cascade(label="File", menu=file_menu)
         settings_menu = tk.Menu(menu)
-        settings_menu.add_command(label="Set Hosts", command=self.set_timer_hosts)
+        settings_menu.add_command(label="Sockets", command=self.edit_timer_hosts)
+        settings_menu.add_command(label="Plan", command=self.edit_race_plan)
+        settings_menu.add_command(label="Frequency", command=self.set_counter_frequency)
+        settings_menu.add_command(label="Lanes", command=self.edit_lanes)
         menu.add_cascade(label="Settings", menu=settings_menu)
 
     def close_manager(self):
@@ -574,17 +588,64 @@ class RaceManagerGUI:
     def get_active_race_idx(self):
         return self.times_column.race_selector.active_race_idx
 
-    def load_race_plan(self, *args):
-        print("Write load_race_plan.")
+    def load_event_file(self, *args):
+        file_name = filedialog.askopenfilename(
+            title="Select Race Plan",
+            filetypes=(("YAML (preferred)", "*.yaml"),
+                       ("comma separated variables", "*.csv")))
+        if len(file_name) > 0:
+            self.event_file_name = file_name
+            self.reload_event()
+        else:
+            print("Event load canceled.")
+
+    def save_event_file(self, *args):
+        file_name = filedialog.asksaveasfilename(
+            title="Select File Name",
+            defaultextension=".yaml")
+        if len(file_name) > 0:
+            self.event_file_name = file_name
+            self.event.print_plan_yaml(self.event_file_name)
+        else:
+            print("Unable to save file.")
+
+    def reload_event(self):
+        if self.log_file_name == '/dev/null':
+            self.event.close_log_file()
+            self.event = Event(event_file=self.event_file_name, log_file=None,
+                               n_lanes=self.n_lanes, check_log_file=False)
+        else:
+            self.event = Event(event_file=self.event_file_name,
+                               log_file=self.log_file_name,
+                               n_lanes=self.n_lanes,
+                               check_log_file=False)
+        self.set_active_race_idx(0)
+        self.update_race_display(new_race=False)
+
+    def edit_race_plan(self, *args):
+        print("Write set_race_plan")
 
     def load_timer_hosts(self, *args):
         print("Write load_timer_hosts")
 
-    def set_timer_hosts(self, *args):
-        print("Write set_timer_hosts")
+    def save_timer_hosts(self, *args):
+        print("Write save_timer_hosts")
+
+    def edit_timer_hosts(self, *args):
+        global timer_coms
+        timer_coms.connect_to_track_hosts()
 
     def load_race_log(self, *args):
         print("Write load_race_log")
+
+    def save_race_log(self, *args):
+        print("Write save_race_log")
+
+    def set_counter_frequency(self, *args):
+        print("Write set_counter_frequency")
+
+    def edit_lanes(self, *args):
+        print("Write edit_lanes")
 
 
 class RaceManager:
@@ -792,7 +853,7 @@ if __name__ == "__main__":
     timer_coms = TimerComs(rm_gui.window,
                            hosts_file=cli_args.hosts_file)
 
-    timer_coms.connect()
+    timer_coms.connect_to_track_hosts(autoclose=True)
 
     event = rm_gui.event
 
@@ -804,10 +865,12 @@ if __name__ == "__main__":
             print("Socket disconnection detected.")
             open_conn = timer_coms.sockets_are_in_list(open_sockets)
             rm_gui.update_race_display(new_race=False)
-            timer_coms.connect_to_track_hosts()
+            timer_coms.connect_to_track_hosts(autoclose=True)
         for ready_socket in ready_sockets:
-            data = timer_coms.get_data_from_socket(ready_socket)
             s_idx = timer_coms.socket_index(ready_socket)
+            if not timer_coms.is_conn[s_idx]:
+                continue
+            data = timer_coms.get_data_from_socket(ready_socket)
             if 'Ready to Race'.encode('utf-8') in data:
                 if race_needs_written:
                     record_race_results()

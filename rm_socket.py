@@ -24,6 +24,7 @@ import socket
 import tkinter as tk
 import time
 import select
+import string
 
 
 class TimerComs:
@@ -48,6 +49,8 @@ class TimerComs:
         self.sockets = [socket.socket(socket.AF_INET, socket.SOCK_STREAM) for _ in range(4)]
         self.parent = parent
         self.reset_lane = reset_lane
+        self.all_connected = False
+        self.connection_window_open = False
 
         if addresses is not None:
             for li, address in enumerate(addresses):
@@ -74,29 +77,76 @@ class TimerComs:
         self.ports[idx] = int(port)
         self.hosts[idx] = ip
 
-    def connect(self):
-        return self.connect_to_track_hosts()
-
-    def connect_to_track_hosts(self):
-        rb = [[], [], [], []]
+    def reset_sockets(self):
         for i, sckt in enumerate(self.sockets):
             if self.is_conn[i]:
                 self.is_conn[i] = False
-                sckt.shutdown(socket.SHUT_RDWR)
+                #sckt.shutdown(socket.SHUT_RDWR)
+                sckt.close()
+        self.sockets = [socket.socket(socket.AF_INET, socket.SOCK_STREAM) for _ in range(4)]
+        self.all_connected = False
+
+    def close_conn_window(self):
+        self.connection_window_open=False
+
+    def connect_to_track_hosts(self, autoclose=False):
+        self.connection_window_open = True
+        rb = [[]] * self.n_lanes
+        port_text = [[]] * self.n_lanes
+        #self.reset_sockets()
 
         popup = tk.Toplevel(self.parent)
         popup.wm_title("Connection To Track")
-        db = tk.Label(popup)
+        popup.protocol("WM_DELETE_WINDOW", self.close_conn_window)
+        db = tk.Label(popup, width=45)
         db.pack()
-        for i in range(4):
-            rb[i] = tk.Label(popup, text="{}:{}".format(
-                self.hosts[i], self.ports[i], fg='#050505'))
+        for i in range(self.n_lanes):
+            port_text[i] = tk.StringVar()
+            port_text[i].set(f"{self.hosts[i]}:{self.ports[i]}")
+            #rb[i] = tk.Label(popup, tex="{}:{}".format(
+            #    self.hosts[i], self.ports[i], fg='#050505'))
+            rb[i] = tk.Entry(popup, textvariable=port_text[i])
             rb[i].pack()
-        while not all(self.is_conn):
+        tk.Button(popup, text="Reset", command=self.reset_sockets).pack()
+        last_time = time.clock_gettime(time.CLOCK_MONOTONIC) - 10.0
+        loop_count = 5
+
+        if self.all_connected:
+            for i in range(self.n_lanes):
+                rb[i].config(**{'fg': '#18ff00', 'bg': '#404040'})
+
+        while self.connection_window_open:
+            if self.all_connected:
+                db.config(text="Connected. Press Reset to drop and reconnect.")
+                popup.update_idletasks()
+                popup.update()
+                time.sleep(0.05)
+                continue
+            time_diff = time.clock_gettime(time.CLOCK_MONOTONIC) - last_time
+            if time_diff < 1.0:
+                popup.update_idletasks()
+                popup.update()
+                time.sleep(0.01)
+                continue
+            elif loop_count < 5:
+                loop_count += 1
+                last_time = time.clock_gettime(time.CLOCK_MONOTONIC)
+                db.config(text=f"Re-attempting in {5-loop_count} seconds.")
+                popup.update_idletasks()
+                popup.update()
+                time.sleep(0.01)
+                continue
+            else:
+                loop_count = 0
+
+            for i in range(self.n_lanes):
+                self.hosts[i] = port_text[i].get().split(':')[0]
+                self.ports[i] = int(port_text[i].get().split(':')[-1])
             for i in range(4):
                 if not self.is_conn[i]:
-                    db.config(text="""Attempting to connect to
-                                  {}:{}""".format(self.hosts[i], self.ports[i]))
+                    rb[i].config(**{'fg': '#000000', 'bg': '#ffffff'})
+                    db.config(text="Attempting to connect to {}:{}".format(
+                        self.hosts[i], self.ports[i]))
                     popup.update()
                     print("Attempting to connect to {}:{}".format(
                         self.hosts[i], self.ports[i]))
@@ -106,21 +156,32 @@ class TimerComs:
                         continue
                     except ConnectionRefusedError:
                         continue
-                self.is_conn[i] = True
-                print("Connection from {}:{} established.".format(
-                    self.hosts[i], self.ports[i]))
-                rb[i].config(**{'fg': '#18ff00', 'bg': '#000000'})
-                time.sleep(0.1)
+                    except:
+                        rb[i].config(**{'fg': '#ff0000', 'bg': '#ffffff'})
+                    else:
+                        self.is_conn[i] = True
+                        print("Connection from {}:{} established.".format(
+                            self.hosts[i], self.ports[i]))
+                        rb[i].config(**{'fg': '#18ff00', 'bg': '#404040'})
+                        time.sleep(0.1)
             if not all(self.is_conn):
                 print("Waiting 5 seconds and re-attempting connection.")
-                db.config(text="""Waiting 5 seconds and re-attempting
-                          connection.""")
-                time.sleep(5)
+                db.config(text="""Waiting 5 seconds and re-attempting connection.""")
+                last_time = time.clock_gettime(time.CLOCK_MONOTONIC)
+            else:
+                self.all_connected = True
+                if autoclose:
+                    self.connection_window_open = False
+            popup.update_idletasks()
+            popup.update()
         popup.destroy()
 
     def send_reset_to_track(self, accept=False):
         print("Sending Reset to the Track")
-        self.sockets[self.reset_lane].sendall("<reset>".encode('utf-8'))
+        if self.is_conn[self.reset_lane]:
+            self.sockets[self.reset_lane].sendall("<reset>".encode('utf-8'))
+        else:
+            self.connect_to_track_hosts()
 
     def get_data_from_socket(self, open_socket):
         socket_data = open_socket.recv(64)

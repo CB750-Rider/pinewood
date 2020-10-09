@@ -382,7 +382,9 @@ class Event:
         # TODO Check the log file to make sure it matches the plan
         # TODO Start here with converting the log to YAML
         self.race_log_file = None
+        self.log_file_name = "/dev/null"
         if log_file is not None:
+            self.log_file_name = log_file
             self.read_log_file(log_file)
 
             # we will be recording race data as it comes in, so open
@@ -392,11 +394,12 @@ class Event:
             except OSError:
                 print("Unable to open {} for writing.")
                 pass
-        if self.race_log_file is None and check_log_file:
+        elif check_log_file:
             decision = input("Attempt to use the default log file? [Y/n]")
             if 'n' or 'N' in decision:
                 try:
                     self.race_log_file = open("log_file.yaml", "a+")
+                    self.log_file_name = "log_file.yaml"
                 except OSError:
                     print("Unable to open {} for writing.".format("log_file.yaml"))
                     raise
@@ -405,8 +408,13 @@ class Event:
                 if 'y' or 'Y' in decision:
                     print("Continuing on.")
                     self.race_log_file = open("/dev/null", "w")
+                    self.log_file_name = "/dev/null"
                 else:
                     raise ValueError
+        else:
+            print("Logging disabled")
+            self.race_log_file = open("/dev/null", "w")
+            self.log_file_name = "/dev/null"
 
     def create_empty_lane_heat(self,
                                ability_rank=100000000000000):

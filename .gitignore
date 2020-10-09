@@ -25,3 +25,4 @@ race_manager.egg-info
 *.yaml
 pinewood.egg-info
 dist
+*.log
