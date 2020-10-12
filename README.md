@@ -46,6 +46,6 @@ This is a convenience application for developers. It simulates the timers so tha
   6. Add the ability to add championship heats
   7. Add a web interface for scout families to see their progress.
   8. Convert the applications to a web interface
-  9. Refactor the messy Race Manager GUI code to better use classes.
+  9. Refactor the messy Race Manager GUI code to better use classes. <-Partially Completed
 
 
