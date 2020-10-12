@@ -43,7 +43,6 @@ parser.add_argument('--log_file', help='The name of a file to save race times to
 host = ['', '', '', '']
 port = [0, 0, 0, 0]
 stringlen = 64
-reset_default_lane = 3
 race_time_displays = [[], [], [], []]  # race time displays
 placement_displays = [[], [], [], []]  # placement displays
 placements = [-1, -1, -1, -1]
@@ -74,38 +73,49 @@ class RaceSelector:
     race_menu: tk.OptionMenu = None
     add_reset_button: tk.Button = None
     current_race_str: tk.StringVar = None
+    option_list: List = None
+    selector_frame: tk.Frame = None
     active_race_idx: int = 0  # The number that shows in the drop-down under Race Log #
     event: Event = None
+    base_frame: tk.Frame = None
 
     def __init__(self,
                  outer_frame: tk.Frame,
                  parent):
         global timer_coms, race_count
         race = parent.event.current_race
+        self.parent = parent
         self.event = parent.event
         rt = tk.Frame(outer_frame)
+        self.base_frame = rt
         w = tk.Label(rt, text="Race log #", font=small_font)
         w.pack(side=tk.LEFT, fill=tk.X, expand=1)
 
         if len(race.race_number):
-            option_list = [str(x) for x in race.race_number]
-            option_list.append(self.event.current_race_log_idx)
+            self.option_list = [str(x) for x in race.race_number]
+            self.option_list.append(self.event.current_race_log_idx)
         else:
-            option_list = [str(self.event.current_race_log_idx), ]
+            self.option_list = [str(self.event.current_race_log_idx), ]
+        if len(self.option_list) == 0:
+            self.option_list = ["0", ]
+
         self.current_race_str = tk.StringVar(rt)
         if race.accepted_result_idx >= 0:
             idx = race.accepted_result_idx
-            option_list[idx] += ' < ACC'
+            self.option_list[idx] += ' < ACC'
             self.active_race_idx = race.race_number[idx]
-            self.current_race_str.set(option_list[idx])
-            race_count[idx] = self.event.current_race.counts[idx]
+            self.current_race_str.set(self.option_list[idx])
+            for ii in range(self.event.n_lanes):
+                race_count[ii] = self.event.current_race.counts[idx][ii]
         else:
-            self.current_race_str.set(option_list[-1])
+            self.current_race_str.set(self.option_list[-1])
             self.active_race_idx = self.event.current_race_log_idx
         self.current_race_str.trace("w", self.load_previous_times)
-        race_selector = tk.OptionMenu(rt, self.current_race_str, "0", *option_list,
-                                      command=parent.update_race_display(new_race=False))
+        self.selector_frame = tk.Frame(rt)
+        race_selector = tk.OptionMenu(self.selector_frame, self.current_race_str, *self.option_list,
+                                      command=self.on_selected)
         race_selector.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        self.selector_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
         self.race_menu = race_selector
         # TODO Should the send_reset_to_track accept?
         b = tk.Button(rt, text="add/reset", command=send_reset_to_track, font=small_font)
@@ -115,30 +125,46 @@ class RaceSelector:
 
     def update(self, show_accepted_race=True):
         # Grab the embeded menu and change the choices
-        embeded_menu = self.race_menu['menu']
-        embeded_menu.delete(0, 'end')
         race = self.event.current_race
+
+        for child in self.selector_frame.winfo_children():
+            child.destroy()
+        self.current_race_str = tk.StringVar(self.base_frame)
 
         # Create a new list
         if len(race.race_number):
-            option_list = [str(x) for x in race.race_number]
-            option_list.append(self.event.current_race_log_idx)
+            self.option_list = [str(x) for x in race.race_number]
+            self.option_list.append(str(self.event.current_race_log_idx))
         else:
-            option_list = [str(self.event.current_race_log_idx), ]
+            self.option_list = [str(self.event.current_race_log_idx), ]
 
         if race.accepted_result_idx >= 0:
             idx = race.accepted_result_idx
-            option_list[idx] += ' < ACC'
+            self.option_list[idx] += ' < ACC'
             if show_accepted_race:
-                self.current_race_str.set(option_list[idx])
+                self.current_race_str.set(self.option_list[idx])
             else:
                 self.current_race_str.set(str(self.active_race_idx))
         else:
             self.current_race_str.set(str(self.active_race_idx))
 
-        for new_choice in option_list:
-            embeded_menu.add_command(label=new_choice,
-                                     command=tk._setit(self.current_race_str, new_choice))
+        self.race_menu = tk.OptionMenu(self.selector_frame,
+                                       self.current_race_str,
+                                       *self.option_list,
+                                       command=self.on_selected).pack(fill=tk.BOTH, expand=1)
+
+    def on_selected(self, *args):
+        global race_needs_written, race_running, rm_gui
+        self.active_race_idx = self.get_race_idx_from_selector()
+        if race_needs_written:
+            record_race_results(accept=False)
+            race_needs_written = False
+        show_results()
+        race_running = [False] * rm_gui.n_lanes
+        self.parent.update_race_display(new_race=False)
+
+    def get_race_idx_from_selector(self):
+        return int(self.current_race_str.get().split(' ')[0])
 
     def load_previous_times(self, *args):
         global race_running, block_loading_previous_times
@@ -335,7 +361,10 @@ class RaceTimes:
         self.race_time_display.config(self.race_time_default)
 
     def update_race_time_display(self):
-        global race_count
+        global race_count, rm_gui
+        race_idx = rm_gui.times_column.race_selector.get_race_idx_from_selector()
+        updated_counts = rm_gui.event.get_counts_for_race(race_idx)
+        race_count[self.idx] = updated_counts[self.idx]
         if race_count[self.idx]:
             final_time = race_count[self.idx] / self.parent.parent.clock_rate
             self.race_time_display.config(text="{0:.3f}".format(final_time), fg='#000000')
@@ -682,7 +711,7 @@ class RaceManagerGUI:
     def set_counter_frequency(self, *args):
         popup = tk.Toplevel(self.window)
         tk.Label(popup, text="Dynamically setting the frequency is not supported yet.\n" +
-                 " Try changing clock_rate in RaceManagerGUI").pack()
+                             " Try changing clock_rate in RaceManagerGUI").pack()
 
     def edit_lanes(self, *args):
         popup = tk.Toplevel(self.window)
@@ -756,7 +785,7 @@ def generate_report():
 def goto_prev_race():
     global race_needs_written, rm_gui
     if race_needs_written:
-        record_race_results(accept=True)
+        record_race_results(accept=False)
         race_needs_written = False
     rm_gui.event.goto_prev_race()
     rm_gui.update_race_selector(True)
@@ -769,7 +798,7 @@ def goto_prev_race():
 def goto_next_race():
     global race_needs_written, rm_gui
     if race_needs_written:
-        record_race_results(accept=True)
+        record_race_results(accept=False)
         race_needs_written = False
     rm_gui.event.goto_next_race()
     rm_gui.update_race_selector(True)
@@ -805,19 +834,25 @@ def find_race_count(data):
 
 def show_results():
     global race_count, placements, rm_gui
+    race_idx = rm_gui.times_column.race_selector.get_race_idx_from_selector()
+    updated_counts = rm_gui.event.get_counts_for_race(race_idx)
+    for li in range(rm_gui.n_lanes):
+        race_count[li] = updated_counts[li]
+
     # Find which lanes were 1st, 2nd, 3rd, and 4th
     ranks = np.argsort(race_count)
     place = 0
+    # TODO We need to handle ties.
     for i in range(rm_gui.event.n_lanes):
-        if rm_gui.event.current_race.is_empty[ranks[i]]:
+        if race_count[ranks[i]] <= 0:
+            placements[ranks[i]] = -1
+        elif rm_gui.event.current_race.is_empty[ranks[i]]:
             placements[ranks[i]] = -1
         elif race_count[ranks[i]] == 0:
             placements[ranks[i]] = -1
         else:
             placements[ranks[i]] = place
             place += 1
-    print(placements)
-    # Subtract any empty lanes as they will have counts of 0
     rm_gui.update_race_display(new_race=False)
 
 
@@ -848,8 +883,11 @@ def record_race_results(accept=False):
             rm_gui.event.current_race_log_idx = tmp_idx
             rm_gui.update_race_selector(show_accepted_race=False)
             return
-        else:
-            return
+        # else:i
+        #    # These results were not recorded yet
+        #    times = [np.float(x) / rm_gui.clock_rate for x in race_count]
+        #    rm_gui.event.record_race_results(times, race_count, accept)
+        #    return
     if any(race_count):
         times = [np.float(x) / rm_gui.clock_rate for x in race_count]
         rm_gui.event.record_race_results(times, race_count, accept)
@@ -912,7 +950,8 @@ if __name__ == "__main__":
                 post_placements = True
             elif 'GO!'.encode('utf-8') in data:
                 race_needs_written = True
-                rm_gui.set_active_race_idx(rm_gui.event.current_race_log_idx)  # Force a jump to the new race when started
+                rm_gui.set_active_race_idx(
+                    rm_gui.event.current_race_log_idx)  # Force a jump to the new race when started
                 rm_gui.update_race_display(new_race=True)
                 print("Track {} racing!".format(s_idx + 1))
                 race_ready[s_idx] = False
@@ -922,6 +961,10 @@ if __name__ == "__main__":
                 # empty lanes will be ignored
                 if not rm_gui.event.current_race.is_empty[s_idx]:
                     race_count[s_idx] = find_race_count(data)
+                    # TODO We shouldn't have to copy this both places, but we reset
+                    # race count in order to allow for things to be loaded. We should
+                    # fix this. LRB Oct 10, 2020
+                    rm_gui.event.set_counts_for_race(s_idx, race_count[s_idx])
                 race_ready[s_idx] = False
                 race_running[s_idx] = False
                 race_complete[s_idx] = True

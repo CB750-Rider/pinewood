@@ -356,6 +356,8 @@ class Race:
 
 
 class Event:
+    counts: List = []
+
     def __init__(self,
                  event_file=None,
                  log_file=None,
@@ -592,7 +594,25 @@ class Event:
         race.save_results(self.current_race_log_idx, times, counts)
         if accept:
             self.accept_results()
+        #TODO Here were are saving counts in a second data array (they are also saved in the races). This was a bug fix
+        # so that we could switch races and get the times to switch. Really, we should simplify things so that the data
+        # are only stored in one place. LRB Oct 10 2020
+        while self.current_race_log_idx >= len(self.counts):
+            self.counts.append([0]*self.n_lanes)
+        for li in range(self.n_lanes):
+            self.counts[self.current_race_log_idx][li] = counts[li]
         self.current_race_log_idx += 1
+
+    def get_counts_for_race(self, race_idx):
+        if race_idx >= len(self.counts):
+            return [0]*self.n_lanes
+        else:
+            return self.counts[race_idx]
+
+    def set_counts_for_race(self, lane_idx, count):
+        while len(self.counts) <= self.current_race_log_idx:
+            self.counts.append([0]*self.n_lanes)
+        self.counts[self.current_race_log_idx][lane_idx] = count
 
     def print_status_report(self, fname):
         racer_names = []
