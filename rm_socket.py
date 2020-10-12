@@ -72,6 +72,13 @@ class TimerComs:
                 self.hosts[li] = hostAddress
                 self.ports[li] = int(hostPort)
 
+    def save_timer_hosts(self, file_name):
+        # TODO Add YAML saver
+        with open(file_name, 'w') as outfile:
+            lane_number=1
+            for hst, port in zip(self.hosts, self.ports):
+                outfile.write(','.join([str(lane_number), hst, str(port)])+'\n')
+
     def set_address(self, idx, address):
         ip, port = address.split(':')
         self.ports[idx] = int(port)

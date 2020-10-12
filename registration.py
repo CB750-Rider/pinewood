@@ -56,14 +56,18 @@ def new_fname(old_name):
 class RegistrationWindow:
     def __init__(self,
                  top: tk.Tk,
-                 event_file: str = None):
+                 event_file: str = None,
+                 event: Event = None):
         self.top = top
 
         self.in_file_name = event_file
 
         self.out_file_name = self.in_file_name
 
-        self.event = Event(event_file=event_file, check_log_file=False)
+        if event is None:
+            self.event = Event(event_file=event_file, check_log_file=False)
+        else:
+            self.event = event
 
         top.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.running = True
@@ -700,7 +704,7 @@ class SaveWindow:
 
 
 if __name__ == "__main__":
-    post_placements = True
+    #post_placements = True
     cli_args = parser.parse_args()
 
     main_window = RegistrationWindow(tk.Tk(),
