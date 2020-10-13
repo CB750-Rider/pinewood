@@ -9,7 +9,7 @@ The library requires [tksheet](https://github.com/ragardner/tksheet).
 
 ## Derby TTL Timers
 
-The [device code](NodeMCU_Code/DerbyTimerNodeMCU/DerbyTimerNodeMCU.ino) is written for the [NodeMcu](https://www.nodemcu.com/index_en.html) development kit which is interfaced to a set of custom-built timers. If you are interested in the timer hardware, let me know via E-mail. The timers are Transistor-Transistor Logic (TTL) systems that use optical triggers to clock when the race "starts" and when cars pass the finish line. The TTL systems block/unblock a clock signal from getting to a counter/recorder. For our system, the NodeMcu works as the counter/recorder and sends the results via WiFi to another computer. There is one NodeMcu, and one end trigger per lane on the Pinewood track. The timers can be set up to use one start trigger signal per lane, or to share a single start trigger signal.
+The [device code](NodeMCU_Code/DerbyTimerNodeMCU/DerbyTimerNodeMCU.ino) is written for the [NodeMcu](https://www.nodemcu.com/index_en.html) development kit which is interfaced to a set of custom-built timers. If you are interested in the timer hardware, let me know via E-mail. The timers are Transistor-Transistor Logic (TTL) systems that use optical triggers to clock when the race starts and when cars pass the finish line. The TTL systems block/unblock a clock signal from getting to a counter/recorder. For our system, the NodeMcu works as the counter/recorder and sends the results via WiFi to another computer. There is one NodeMcu, and one end trigger per lane on the Pinewood track. The timers can be set up to use one start trigger signal per lane, or to share a single start trigger signal.
 
 ![One Timer](Doc/DerbyTimer.gif)
 
@@ -23,29 +23,28 @@ The NodeMCU also communicates with the Race Manager GUI (described below). When 
 
 The GUI code is written in Python using Tk. There is a tool for running the race event, a tool for entering scouts into the race and doing weigh-ins, and a tool for editing the race schedule. All tools were developed on Linux. The code is able to auto-generate a race schedule. It attempts to keep racers of similar age on the track at the same time. It makes sure that each racer runs once on each track and averages their scores. 
 
-There are also some testing and debugging tools. This project is still incomplete, but I hope to have a working version together by the end of July 2020.
+There are also some testing and debugging tools. This project is ready for testing and debugging as of October 2020.
 
 ### Race Manager
 
-The Race Manager is the code that runs on Race Day. It logs the results and lets the Master of Ceremonies (MC) know who to call up.
+The Race Manager is the code that runs on Race Day. It logs the results and lets the Master of Ceremonies (MC) know who to call up. It also has a menu option that can call the registration application window described below so that races can be edited through the GUI.
 
 ### Registration
 
-The Registration code should be run in the days (maybe even hours) leading up to the race. This is were we set up all our entries, the race schedule, and check to make sure the cars are set up properly. 
-
+The Registration code should be run in the days (maybe even hours) leading up to the race. This is were we set up all our entries, the race schedule, and check to make sure the cars are set up properly. The registration manager *can* be called from the race manager, but changing the race in the middle may cause stability issues. 
 
 ### Timer Simulation
 
-This is a convenience application for developers. It simulates the timers so that the Race Manager application can run and be tested.
+This is a convenience application for developers. It simulates the timers so that the Race Manager application can run and be tested. The simulation should be called before running the Race Manager. 
 
 ## TODO List
 
   1. Convert the race log to yaml. <- Skipping for now. I don't see a huge benefit
-  2. Improve this README
-  3. Create a tool to print the race plan & current stats
-  6. Add the ability to add championship heats
+  2. Improve this README.
+  3. Create a tool to print the race plan & current stats.
+  6. Add the ability to add championship heats.
   7. Add a web interface for scout families to see their progress.
-  8. Convert the applications to a web interface
-  9. Refactor the messy Race Manager GUI code to better use classes. <-Partially Completed
+  8. Convert the applications to a web interface.
+  9. Refactor the messy Race Manager GUI code to better use classes. This is partially completed but more work needs done here. 
 
 
