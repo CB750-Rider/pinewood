@@ -25,16 +25,18 @@ limitations under the License.
 
 /* For Revision 2.0 * /
 #define RESET_OPEN LOW /* Mimic an open reset circuit (button not pressed) * /
-#define RESET_CLOSED HIGH /* Mimic the closed reset circuit (button pressed) * /
-*/
+#define RESET_CLOSED HIGH /* Mimic the closed reset circuit (button pressed) */
+
 
 /* For Revision 3.0 */
 #define RESET_OPEN HIGH
-#define RESET_CLOSED LOW
-/**/
+#define RESET_CLOSED LOW /**/
 
 /* DEBUG_MODE enables or disables printing to the serial output */
 #define DEBUG_MODE 0
+
+/* Sets the network timeout number of seconds */
+#define NETWORK_TIMEOUT 10
 
 #if DEBUG_MODE
   #include <SPI.h>
@@ -166,65 +168,34 @@ void setup() {
 
   /* Get the network up and running */
   WiFi.mode(WIFI_STA);
-  display.setTextSize(2);
+  display.clearDisplay();
+  display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
-  display.print("Wife Connecting");
+  display.print("Wifi Attempt 0 of ");
+  display.print(NETWORK_TIMEOUT);
+  display.display();
+  if(!digitalRead(USER_INPUT))
+    delay(250); /* Give time for the user to unpress. */
   WiFi.begin(ssid,password);
   i=0;
-  while (WiFi.status()!=WL_CONNECTED && i<4) {   
-    /* Handle when the user input is pressed. */
-    if(!digitalRead(USER_INPUT)){
-      switch(i){
-        case 0:
-          i=1;
-          display.clearDisplay();
-#if DEBUG_MODE
-          Serial.println("Display Cleared.");
-#endif /* DEBUG_MODE */
-          break;
-        case 1:
-        case 3:
-          break;
-        case 2:
-          i=3;
-#if DEBUG_MODE
-          Serial.print("Networking ");
-#endif /* DEBUG_MODE */
-          break;
-        default:
-          break;
-      }
+  while (WiFi.status()!=WL_CONNECTED && i<NETWORK_TIMEOUT*10) {       
+    delay(100);
+    if(!digitalRead(USER_INPUT)) /* pressing the button fast-forwards */
+      i = ((i/10) + 1)*10;
+    else
+      i++;
+    if(i%10 == 0){
+      display.clearDisplay();
+      display.setCursor(0,0);
+      display.print("Wifi Attempt ");
+      display.print(i/10);
+      display.print("of");
+      display.print(NETWORK_TIMEOUT);
     }
-    /* Handle when the user input is not pressed. */
-    if(digitalRead(USER_INPUT)){
-      switch(i){
-        case 0:
-        case 2:
-          display.print(".");
-#if DEBUG_MODE
-          Serial.print(".");
-#endif /* DEBUG_MODE */
-          break;
-        case 1:
-          display.setCursor(0,0);
-          display.print("Skip connecting? ");
-#if DEBUG_MODE
-          Serial.print("Skip connecting?");
-#endif /* DEBUG_MODE */
-          i=2;
-          break;
-        case 3:
-          i=4;
-#if DEBUG_MODE
-          Serial.println("skipped.");
-#endif /* DEBUG_MODE */
-          break; 
-        default:
-          break;
-      }
-    }
-    delay(200);
+    else
+      display.print(".");
+    display.display();
   }
 
   for(i=0;i<5;i++){
@@ -360,9 +331,15 @@ void send_ready_message(){
   display.setTextSize(2);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
-  display.print((WiFi.localIP()));
-  display.print(":");
-  display.print(port);
+  if(WiFi.status()!=WL_CONNECTED){
+    display.print("Wifi isn't"
+                  "connected."); 
+  }
+  else{
+    display.print((WiFi.localIP()));
+    display.print(":");
+    display.print(port);
+  }
   display.display();
   delay(100);
 }
