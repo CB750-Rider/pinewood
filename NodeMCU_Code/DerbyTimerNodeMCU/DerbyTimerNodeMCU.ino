@@ -3,10 +3,8 @@ Author: Lee Burchett
 lee.r.burchett@gmail.com
 
 Use a node MCU to count pulses in order to get timing for a pinewood derby.
-V1 Was the initial, 1 MCU Version
-V2 Was a 1 board per track version
-V3 Incorporates the local display
-
+This is the current version that should be used with the newest board 
+revision (Derby Timer R3.0 24 May 2020).
 
 
 Copyright [2019] [Lee R. Burchett]
@@ -25,10 +23,26 @@ limitations under the License.
 
 */
 
-//#include <SPI.h>
+/* For Revision 2.0 * /
+#define RESET_OPEN LOW /* Mimic an open reset circuit (button not pressed) * /
+#define RESET_CLOSED HIGH /* Mimic the closed reset circuit (button pressed) * /
+*/
+
+/* For Revision 3.0 */
+#define RESET_OPEN HIGH
+#define RESET_CLOSED LOW
+/**/
+
+/* DEBUG_MODE enables or disables printing to the serial output */
+#define DEBUG_MODE 0
+
+#if DEBUG_MODE
+  #include <SPI.h>
+  #include <string.h>
+#endif /* DEBUG_MODE */
+
 #include <Wire.h>
 #include <ESP8266WiFi.h>
-//#include <string.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "MyWIFI_Settings.h"
@@ -108,24 +122,30 @@ void setup() {
   mDisconnectHandler = WiFi.onStationModeDisconnected(on_wifi_disconnected);
 
   /* Start the serial and display interfaces */
-  //Serial.begin(115200);
   Wire.begin(OLED_SDA,OLED_CLK);
-  
+
   /* Prepare pin interfaces. */
   pinMode(POWER_OUT, OUTPUT);
   digitalWrite(POWER_OUT, HIGH);
   pinMode(COUNT,INPUT_PULLUP);
   pinMode(RESET_IN,INPUT_PULLUP);
   pinMode(RESET_OUT,OUTPUT);
-  digitalWrite(RESET_OUT,HIGH);
+  digitalWrite(RESET_OUT,RESET_OPEN);
   pinMode(USER_INPUT, INPUT_PULLUP);
   pinMode(LED_PIN,OUTPUT);
+
   attachInterrupt(digitalPinToInterrupt(COUNT), count, CHANGE);
+
+#if DEBUG_MODE
+  Serial.begin(115200);
+#endif /* DEBUG_MODE */
 
   /* OLED Initialization 
   SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally*/
   if(!(OLED_init = display.begin(SSD1306_SWITCHCAPVCC, 0x3C))) { // Address 0x3C for 128x32
-    //Serial.println(F("SSD1306 allocation failed"));
+ #if DEBUG_MODE
+    Serial.println(F("SSD1306 allocation failed"));
+#endif /* DEBUG_MODE */
     for(i=0;i<5000;i++){
       digitalWrite(LED_PIN,i%2);
       delay(150);
@@ -139,12 +159,71 @@ void setup() {
   }
 
   digitalWrite(LED_PIN,1);
-  //Serial.println("Setting up the network");
+
+#if DEBUG_MODE
+  Serial.println("Setting up the network");
+#endif /* DEBUG_MODE */
 
   /* Get the network up and running */
   WiFi.mode(WIFI_STA);
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.print("Wife Connecting");
   WiFi.begin(ssid,password);
-  while (WiFi.status() != WL_CONNECTED) {   
+  i=0;
+  while (WiFi.status()!=WL_CONNECTED && i<4) {   
+    /* Handle when the user input is pressed. */
+    if(!digitalRead(USER_INPUT)){
+      switch(i){
+        case 0:
+          i=1;
+          display.clearDisplay();
+#if DEBUG_MODE
+          Serial.println("Display Cleared.");
+#endif /* DEBUG_MODE */
+          break;
+        case 1:
+        case 3:
+          break;
+        case 2:
+          i=3;
+#if DEBUG_MODE
+          Serial.print("Networking ");
+#endif /* DEBUG_MODE */
+          break;
+        default:
+          break;
+      }
+    }
+    /* Handle when the user input is not pressed. */
+    if(digitalRead(USER_INPUT)){
+      switch(i){
+        case 0:
+        case 2:
+          display.print(".");
+#if DEBUG_MODE
+          Serial.print(".");
+#endif /* DEBUG_MODE */
+          break;
+        case 1:
+          display.setCursor(0,0);
+          display.print("Skip connecting? ");
+#if DEBUG_MODE
+          Serial.print("Skip connecting?");
+#endif /* DEBUG_MODE */
+          i=2;
+          break;
+        case 3:
+          i=4;
+#if DEBUG_MODE
+          Serial.println("skipped.");
+#endif /* DEBUG_MODE */
+          break; 
+        default:
+          break;
+      }
+    }
     delay(200);
   }
 
@@ -192,7 +271,7 @@ void send_reset_to_timer(){
       wifiClient.write((uint8_t *)msg,sizeof(msg)); 
     } /* if the client is connected */
   } /* if the client is valid */
-  digitalWrite(RESET_OUT,LOW);
+  digitalWrite(RESET_OUT,RESET_CLOSED);
   static_message(msg);
   delay(LOOP_DELAY*3); /* Give time for the others to react */
   while(digitalRead(RESET_IN) && watchdog<10){
@@ -201,7 +280,7 @@ void send_reset_to_timer(){
     display.display();
     watchdog++;
   }
-  digitalWrite(RESET_OUT,HIGH);
+  digitalWrite(RESET_OUT,RESET_OPEN);
   race_set();
 }
 void reset_rx(){
@@ -230,15 +309,21 @@ void check_timer(){
   }
 }
 void race_set(){
-  //Serial.println("Setting the race up");
+#if DEBUG_MODE
+  Serial.println("Setting the race up.");
+#endif /* DEBUG_MODE */
   counts = 0;
   last_val = 0;
   is_set = true;
   has_started = false;
-  //Serial.println("Sending the ready message.");
+#if DEBUG_MODE
+  Serial.println("Sending the ready message.");
+#endif /* DEBUG_MODE */
   send_ready_message();
   current_rate = STANDBY_RATE;
-  //Serial.println("Race setup complete.");
+#if DEBUG_MODE
+  Serial.println("Race setup complete.");
+#endif /* DEBUG_MODE */
 }
 void send_start_message(){
   char msg[]= "<GO!>\n";
@@ -324,7 +409,9 @@ void check_client_data(){
           else if(strstr(line,"counts"))
             wifiClient.write((uint8_t *)&counts,sizeof(counts));
           else{
-        //      Serial.println("TODO: figure out how to handle that string!");
+#if DEBUG_MODE
+                Serial.println("TODO: figure out how to handle that string!");
+#endif /* DEBUG_MODE */
             }
         } /* if we read something */
       } /* if the client is connected and has data for us. */
@@ -332,7 +419,9 @@ void check_client_data(){
 }/* print_client_data()*/
 void on_wifi_disconnected(const WiFiEventStationModeDisconnected& event){
   /* Make sure and close all open clients so that their spots are cleared. */
- // Serial.print("Wifi disconnected. Closing all open TCP clients.\n");
+#if DEBUG_MODE
+  Serial.println("Wifi disconnected. Closing all open TCP clients.");
+#endif /* DEBUG_MODE */
     if(wifiClient){
       wifiClient.stop();
     }
@@ -342,7 +431,9 @@ void check_for_disconnected_clients(){
     if(client_connected && !wifiClient.connected()){
       wifiClient.stop();
       client_connected=false;
-   //   Serial.print("Client Disconnected.\n");
+#if DEBUG_MODE
+  Serial.println("Client Disconnected.");
+#endif /* DEBUG_MODE */
     }
 }
 void handle_new_client(){
@@ -350,7 +441,9 @@ void handle_new_client(){
     if (!wifiClient || !wifiClient.connected()) {
       if (wifiClient) wifiClient.stop();
       wifiClient = wifiServer.available();
-   //   Serial.print("New client.\n");
+#if DEBUG_MODE
+      Serial.println("New client.");
+#endif /* DEBUG_MODE */
       client_connected=true;
     }
   else{/* Reject*/
