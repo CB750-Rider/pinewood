@@ -26,3 +26,5 @@ race_manager.egg-info
 pinewood.egg-info
 dist
 *.log
+*.tex
+temp

@@ -36,8 +36,32 @@ limitations under the License.
 import numpy as np
 import yaml
 from typing import List
+from pdflatex import PDFLaTeX
 
 default_heat_name = "No_Heat"
+
+mc_sheet_header = r"""\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[landscape]{geometry}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage[table]{xcolor}
+\begin{document}
+\rowcolors{2}{gray!25}{white}"""
+
+mc_table_footer = r"""\end{tabular}
+\end{document}"""
+
+current_car_number = 1
+def next_car_number():
+    global current_car_number
+    out = current_car_number
+    if current_car_number == 12:
+        current_car_number=14
+    else:
+        current_car_number += 1
+    return out
 
 
 # CLASS STUFF
@@ -62,7 +86,12 @@ class Racer:
         self.race_plan_nums = np.zeros(self.n_lanes)
         self.race_log_nums = np.zeros(self.n_lanes)
         self.race_positions = np.zeros(self.n_lanes)
-        self.car_number = car_number
+        if car_number > 0:
+            self.car_number = car_number
+        elif heat_name == "Empty":
+            self.car_number = 0
+        else:
+            self.car_number = next_car_number()
         self.hist = {}
         if car_status is None:
             self.car_status = {
@@ -103,14 +132,7 @@ class Racer:
         return {
             'name': self.name,
             'rank': self.rank,
-            'race_times': self.race_times,
-            'race_counts': self.race_counts,
-            'race_plan_nums': self.race_plan_nums,
-            'race_log_nums': self.race_log_nums,
-            'race_positions': self.race_positions,
-            'heat_name': self.heat_name,
-            'heat_index': self.heat_index,
-            'car_status': self.car_status
+            'car_number': self.car_number
         }
 
     def from_dict(self, dict):
@@ -118,6 +140,8 @@ class Racer:
             self.name = dict['name']
         if 'rank' in dict.keys():
             self.rank = dict['rank']
+        if 'car_number' in dict.keys():
+            self.car_number = dict['car_number']
         if 'race_times' in dict.keys():
             self.race_times = dict['race_times']
         if 'race_counts' in dict.keys():
@@ -136,8 +160,12 @@ class Racer:
             self.car_status = dict['car_status']
 
     def chip(self):
-        chip = {"text": "{}:{}".format(self.name, self.heat_name), "font": ("Serif", 16)}
+        chip = {"text": "{} #{}:{}".format(self.name, self.car_number, self.heat_name),
+                "font": ("Serif", 16)}
         return chip
+
+    def mc_sheet_label(self):
+        return r"\#" + "{} {}".format(self.car_number, self.name)
 
     def set_heat(self, heat_name, heat_index):
         self.clear_races()  # Must do this BEFORE setting the new heat name!
@@ -168,8 +196,9 @@ class Racer:
             return 0.0
 
     def save_heat(self):
-        self.hist[self.heat] = [self.race_log_nums, self.race_plan_nums,
+        self.hist[self.heat_name] = [self.race_log_nums, self.race_plan_nums,
                                 self.race_times, self.race_positions]
+
     def clear_races(self):
         if self.get_worst() > 0.0:
             self.save_heat()
@@ -229,10 +258,7 @@ class Heat:
     def to_dict(self):
         racers = []
         for racer in self.racers:
-            racers.append({
-                'name': racer.name,
-                'rank': racer.rank
-            })
+            racers.append(racer.to_dict())
         return {
             'name': self.name,
             'racers': racers,
@@ -352,6 +378,13 @@ class Race:
                 out.append("")
             else:
                 out.append(f"{racer.name} : {racer.heat_name}")
+        return out
+
+    def as_mc_sheet(self, i):
+        out = str(i)
+        for racer in self.racers:
+            out += " & " + racer.mc_sheet_label()
+        out += "\\\\\n"
         return out
 
 
@@ -613,6 +646,25 @@ class Event:
         while len(self.counts) <= self.current_race_log_idx:
             self.counts.append([0]*self.n_lanes)
         self.counts[self.current_race_log_idx][lane_idx] = count
+
+    def mc_table_header(self):
+        out = r"\begin{tabular}{l|" + " c"*self.n_lanes + "}\n"
+        out += r"\textbf{Race}"
+        for i in range(self.n_lanes):
+            out += r" & \textbf{Lane " + str(i+1) + "}"
+        out += r" \\" + "\n" + r"\hline " + "\n"
+        return out
+
+    def print_plan_mc_sheet(self, file_name):
+        with open('mc_sheet.tex','w') as tempfile:
+            tempfile.write(mc_sheet_header + self.mc_table_header())
+            for idx, race in enumerate(self.races):
+                tempfile.write(race.as_mc_sheet(idx+1))
+            tempfile.write(mc_table_footer)
+        pdfl = PDFLaTeX.from_texfile('mc_sheet.tex')
+        pdf, log, complete = pdfl.create_pdf()
+        with open(file_name,'wb') as outfile:
+            outfile.write(pdf)
 
     def print_status_report(self, fname):
         racer_names = []
@@ -894,6 +946,7 @@ def create_heat_from_line(line):
 def create_racer_from_dict(rcr_dict, heat_name):
     out = Racer(name=rcr_dict['name'],
                 rank=rcr_dict['rank'],
+                car_number=next_car_number(),
                 heat_name=heat_name)
     if 'car_status' in rcr_dict.keys():
         car_status = rcr_dict['car_status']

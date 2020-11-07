@@ -94,6 +94,7 @@ class RegistrationWindow:
         filemenu.add_command(label="Open", command=self.open_event)
         filemenu.add_command(label="Save", command=self.save)
         filemenu.add_command(label="Save As", command=self.save_as)
+        filemenu.add_command(label="Print", command=self.print)
         filemenu.add_separator()
         filemenu.add_command(label="Exit", command=self.on_closing)
 
@@ -112,6 +113,10 @@ class RegistrationWindow:
     def save_as(self):
         self.out_file_name = filedialog.asksaveasfilename()
         self.save()
+
+    def print(self):
+        out_file = filedialog.asksaveasfilename(defaultextension='.pdf')
+        self.event.print_plan_mc_sheet(out_file)
 
     def save(self):
         self.check_revised_plan()
@@ -562,12 +567,22 @@ class HeatList:
         heat = self.parent.event.heats[idx]
         if idx >= 0:
             title = f"Delete {heat.name}"
-            if len(heat.racers) > 1:
+            if len(heat.racers) > 0:
                 message = f"Do you want to permanently delete the heat {heat.name} and the following racers:"
                 for racer in heat.racers[:-1]:
                     message += " " + racer.name + ","
                 message += " and " + heat.racers[-1].name + "?"
-            if messagebox.askyesno(title, message):
+                if messagebox.askyesno(title, message):
+                    try:
+                        self.parent.event.remove_heat(heat=self.parent.event.heats[idx])
+                    except ValueError:
+                        print("Unable to remove heat.")
+                        return
+                    else:
+                        self.parent.heat_list.update_heat_list()
+                        if self.parent.autogenerate_race_plan.get():
+                            self.parent.race_list.load_race_plan()
+            else:
                 try:
                     self.parent.event.remove_heat(heat=self.parent.event.heats[idx])
                 except ValueError:

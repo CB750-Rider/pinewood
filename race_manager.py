@@ -91,11 +91,14 @@ class RaceSelector:
         w = tk.Label(rt, text="Race log #", font=small_font)
         w.pack(side=tk.LEFT, fill=tk.X, expand=1)
 
-        if len(race.race_number):
-            self.option_list = [str(x) for x in race.race_number]
-            self.option_list.append(self.event.current_race_log_idx)
-        else:
+        if race is None:
             self.option_list = [str(self.event.current_race_log_idx), ]
+        else:
+            if len(race.race_number):
+                self.option_list = [str(x) for x in race.race_number]
+                self.option_list.append(self.event.current_race_log_idx)
+            else:
+                self.option_list = [str(self.event.current_race_log_idx), ]
         if len(self.option_list) == 0:
             self.option_list = ["0", ]
 

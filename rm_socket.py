@@ -46,6 +46,7 @@ class TimerComs:
         self.hosts = [str(x) for x in range(n_lanes)]
         self.ports = [int(x) for x in range(n_lanes)]
         self.is_conn = [False for _ in range(n_lanes)]
+        self.entry_widgets = [[]]*n_lanes
         self.sockets = [socket.socket(socket.AF_INET, socket.SOCK_STREAM) for _ in range(4)]
         self.parent = parent
         self.reset_lane = reset_lane
@@ -98,7 +99,7 @@ class TimerComs:
 
     def connect_to_track_hosts(self, autoclose=False):
         self.connection_window_open = True
-        rb = [[]] * self.n_lanes
+        rb = self.entry_widgets
         port_text = [[]] * self.n_lanes
         #self.reset_sockets()
 
@@ -146,9 +147,24 @@ class TimerComs:
             else:
                 loop_count = 0
 
+            has_focus = self.parent.focus_get()
+            i=0
+            while i < self.n_lanes:
+                while self.entry_widgets[i] == has_focus:
+                    db.config(text=f"Re-attempting connection after editing.")
+                    i=-1
+                    time.sleep(0.05)
+                    popup.update_idletasks()
+                    popup.update()
+                    has_focus = self.parent.focus_get()
+                i+=1
+            self.parent.focus_set()
             for i in range(self.n_lanes):
                 self.hosts[i] = port_text[i].get().split(':')[0]
-                self.ports[i] = int(port_text[i].get().split(':')[-1])
+                try:
+                    self.ports[i] = int(port_text[i].get().split(':')[-1])
+                except ValueError:
+                    pass
             for i in range(4):
                 if not self.is_conn[i]:
                     rb[i].config(**{'fg': '#000000', 'bg': '#ffffff'})
