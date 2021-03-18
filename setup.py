@@ -34,5 +34,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3',
-    install_requires=['numpy','tk']
+    install_requires=['numpy','tk','pdflatex']
 )
