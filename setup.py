@@ -33,6 +33,6 @@ setuptools.setup(
         "License :: OSI Approved :: Apache License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3',
+    python_requires='>=3.6',
     install_requires=['numpy','tk','pdflatex','tksheet']
 )

@@ -24,9 +24,10 @@ import numpy as np
 import select
 import time
 import tkinter as tk
+from queue import Queue
+from threading import Thread, Lock
+from typing import Iterable
 
-host = ['', '', '', '']
-port = [0, 0, 0, 0]
 infile = "lane_hosts.csv"
 ready_msg = "<Ready to Race.>".encode('utf-8')
 go_msg = "<GO!>".encode('utf-8')
@@ -36,17 +37,111 @@ time_suffix = ">".encode('utf-8')
 stringlen = 64
 race_ready = False
 running_race = True
-report_lane = [[], [], [], []]
+mutex = Lock()
 
 
-def toggle_racing():
-    global t_btn, running_race
-    if t_btn.config('text')[-1] == "Racing":
-        t_btn.config(text="On Hold")
-        running_race = False
-    else:
-        t_btn.config(text="Racing")
-        running_race = True
+class Lane:
+    def __init__(self, idx):
+        self.number = idx + 1
+        self.index = idx
+        self.reporting = None
+        self.connection = None
+        self.address = None
+        self.queue = Queue(maxsize=2)
+        self.host = ''
+        self.port = ''
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.check_button = None
+
+    def add_lane_to_window(self, parent: tk.Widget):
+        self.reporting = tk.BooleanVar()
+        self.reporting.set(True)
+        self.check_button = tk.Checkbutton(parent, text="Lane {}".format(self.number)
+                                           , variable=self.reporting)
+        self.check_button.pack()
+
+    def start_socket(self):
+        Thread(target=self._await_connection, daemon=True).start()
+
+    def _await_connection(self):
+        print("Setting up connection to {}:{}".format(self.host, self.port))
+        while True:
+            try:
+                self._socket.bind((self.host, self.port))
+            except OSError:
+                print(f"Unable to connect to {self.host}:{self.port}. It is probably already in use. Retry in 5 seconds.")
+                time.sleep(5.0)
+            else:
+                break
+        self._socket.listen(2)
+        print("Awaiting connection on {}:{}".format(self.host, self.port))
+        new_conn, new_addr = self._socket.accept()
+        mutex.acquire()
+        self.queue.put(new_conn)
+        self.queue.put(new_addr)
+        print("Connection from {} established.".format(self.host))
+        self.queue.task_done()
+        mutex.release()
+
+    def close_socket(self):
+        try:
+            self.connection.close()
+        except AttributeError:
+            pass
+
+    def get_connections(self):
+        if self.queue.full():
+            self.connection = self.queue.get()
+            self.address = self.queue.get()
+        return self.connection, self.address
+
+    def shutdown_connection(self):
+        try:
+            self.connection.shutdown(socket.SHUT_RDWR)
+        except AttributeError:
+            pass
+
+    def close_connection(self):
+        try:
+            self.connection.close()
+        except AttributeError:
+            pass
+
+
+class MainWindow:
+    def __init__(self, lanes: Iterable[Lane]):
+        self.window = tk.Tk()
+        for lane in lanes:
+            lane.add_lane_to_window(self.window)
+            lane.start_socket()
+
+        self.reset_button = tk.Button(self.window, text="Reset", command=not_ready)
+        self.reset_button.pack()
+        self.racing_button = tk.Button(self.window, text="Racing", command=self.toggle_racing)
+        self.racing_button.pack()
+        self.window.protocol("WM_DELETE_WINDOW", close_manager)
+        self.window.update()
+
+    def toggle_racing(self):
+        global running_race
+        if self.racing_button.config('text')[-1] == "Racing":
+            self.racing_button.config(text="On Hold")
+            running_race = False
+        else:
+            self.racing_button.config(text="Racing")
+            running_race = True
+
+    def update(self):
+        self.window.update()
+        self.window.update_idletasks()
+
+    def activate_reset_button(self):
+        self.reset_button.configure(command=race_reset)
+        self.update()
+
+    def deactivate_reset_button(self):
+        self.reset_button.configure(command=not_ready)
+        self.update()
 
 
 def make_str(race_number):
@@ -56,21 +151,21 @@ def make_str(race_number):
     return ','.join(time_str), race_number + 1
 
 
-def set_host_and_port():
-    global infile, host, port
+def set_host_and_port(lanes: Iterable[Lane], infile: str):
     with open(infile) as fp:
         for line in fp:
             laneNumber, hostAddress, hostPort = line.split(',')
             li = int(laneNumber) - 1
-            host[li] = hostAddress
-            port[li] = int(hostPort)
+            lanes[li].host = hostAddress
+            lanes[li].port = int(hostPort)
+    return lanes
 
 
 def race_reset():
-    global race_ready, conn
-    for cn in conn:
-        cn.sendall(reset_msg)
-        cn.sendall(ready_msg)
+    global race_ready, the_lanes
+    for lane in the_lanes:
+        lane.connection.sendall(reset_msg)
+        lane.connection.sendall(ready_msg)
     race_ready = True
 
 
@@ -85,42 +180,46 @@ def time_msg():
     return time_message
 
 
-def close_sockets(connection):
-    for cn in connection:
-        cn.close()
-
-
 def not_ready():
     print("The connections are not ready yet!")
 
 
-def run_race(conn):
-    global report_lane
-    for cn in conn:
-        cn.sendall(go_msg)
+def run_race(lanes):
+    for lane in lanes:
+        lane.connection.sendall(go_msg)
     time.sleep(3)
-    for idx, cn in enumerate(conn):
-        if report_lane[idx].get():
-            cn.sendall(time_prefix + time_msg() + time_suffix)
+    for idx, lane in enumerate(lanes):
+        if lane.reporting.get():
+            lane.connection.sendall(time_prefix + time_msg() + time_suffix)
         time.sleep(np.random.rand() / 2.0)
 
 
 def close_manager():
-    global conn, end_program
+    global end_program, the_lanes
     end_program = True
-    for cn in conn:
-        cn.shutdown(socket.SHUT_RDWR)
+    for lane in the_lanes:
+        lane.shutdown_connection()
     raise SystemExit
+
+
+def get_connections():
+    global the_lanes
+    connections = []
+    for lane in the_lanes:
+        ca = lane.get_connections()
+        if ca[0] is None:
+            return None
+        else:
+            connections.append(ca[0])
+    return connections
 
 
 if __name__ == "__main__":
     #    global infile,host,port,race_ready
+    the_lanes = [Lane(x) for x in range(4)]
     end_program = False
-    sockets_ = [[], [], [], []]
-    cb = [[], [], [], []]
-    conn = [[], [], [], []]
-    addr = [[], [], [], []]
     prompt_reset = True
+
     if len(sys.argv) == 1:
         print("Using the hosts in {}.".format(infile))
         print("Pass a file name if you would like to use a different file.")
@@ -130,55 +229,35 @@ if __name__ == "__main__":
         infile = sys.argv[1]
         print("Only the first argument is used")
 
-    set_host_and_port()
+    set_host_and_port(the_lanes, infile)
 
-    window = tk.Tk()
-    for i in range(4):
-        report_lane[i] = tk.BooleanVar()
-        report_lane[i].set(True)
-        cb[i] = tk.Checkbutton(window, text="Lane {}".format(i + 1)
-                               , variable=report_lane[i])
-        cb[i].pack()
-    bt = tk.Button(window, text="Reset", command=not_ready)
-    bt.pack()
-    t_btn = tk.Button(window, text="Racing", command=toggle_racing)
-    t_btn.pack()
-    window.protocol("WM_DELETE_WINDOW", close_manager)
-    window.update()
+    window = MainWindow(the_lanes)
 
-    for i in range(4):
-        print("Setting up connection to {}:{}".format(host[i], port[i]))
-        sockets_[i] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sockets_[i].bind((host[i], port[i]))
-        sockets_[i].listen(2)
-        print("Awaiting connection on {}:{}".format(host[i], port[i]))
-        conn[i], addr[i] = sockets_[i].accept()
-        print("Connection from {} established.".format(addr[i]))
+    while not end_program:
 
-    connections_ready = True
-    bt.config(command=race_reset)
+        conn = get_connections()
 
-    while connections_ready:
-        if not race_ready:
-            ready_sockets, writy_sockets, _ = select.select(conn, conn, [], 5.0)
-            for socket in ready_sockets:
-                data = socket.recv(64).decode('utf-8')
-                if 'reset' in data:
-                    race_reset()
+        if conn is not None:
+            window.activate_reset_button()
+            if not race_ready:
+                ready_sockets, writy_sockets, _ = select.select(conn, conn, [], 5.0)
+                for rs in ready_sockets:
+                    data = rs.recv(64).decode('utf-8')
+                    if 'reset' in data:
+                        race_reset()
 
-        if len(writy_sockets) < 4:
-            print("A socket disconnected. We should restart")
-            close_sockets(conn)
-            connections_ready = False
+            if len(writy_sockets) < 4:
+                print("A socket disconnected. We should restart")
+                for lane in the_lanes:
+                    lane.close_socket()
+                connections_ready = False
 
-        if race_ready and running_race:
-            print("Running Race in 2 seconds.")
-            time.sleep(2)
-            run_race(conn)
-            race_ready = False
+            if race_ready and running_race:
+                print("Running Race in 2 seconds.")
+                time.sleep(2)
+                run_race(the_lanes)
+                race_ready = False
 
-        window.update_idletasks()
         window.update()
 
-        if end_program:
-            break;
+
