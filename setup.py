@@ -33,4 +33,6 @@ setuptools.setup(
         "License :: OSI Approved :: Apache License",
         "Operating System :: OS Independent",
     ],
+    python_requires='>=3',
+    install_requires=['numpy','tk']
 )
