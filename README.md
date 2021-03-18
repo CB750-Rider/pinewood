@@ -39,13 +39,16 @@ This is a convenience application for developers. It simulates the timers so tha
 
 ## TODO List
 
-  1. Convert the race log to yaml. <- Skipping for now. I don't see a huge benefit
-  2. Improve this README.
-    3. Auto-assign car numbers.
-    4. Create a tool to print the race plan & current stats.
-    5. Add the ability to add championship heats.
-    6. Add a web interface for scout families to see their progress.
-    7. Convert the applications to a web interface.
-    8. Refactor the messy Race Manager GUI code to better use classes. This is partially completed but more work needs done here. 
+1. The code breaks without arguments. Make it so it
+   will run and at least warn the user about what it 
+   needs.
+1. Convert the race log to yaml. <- Skipping for now. I don't see a huge benefit
+2. Improve this README.
+3. Auto-assign car numbers.
+4. Create a tool to print the race plan & current stats.
+5. Add the ability to add championship heats.
+6. Add a web interface for scout families to see their progress.
+7. Convert the applications to a web interface.
+8. Refactor the messy Race Manager GUI code to better use classes. This is partially completed but more work needs done here. 
 
 

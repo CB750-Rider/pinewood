@@ -160,7 +160,7 @@ class Racer:
             self.car_status = dict['car_status']
 
     def chip(self):
-        chip = {"text": "{} #{}:{}".format(self.name, self.car_number, self.heat_name),
+        chip = {"text": "{}\n#{}:{}".format(self.name, self.car_number, self.heat_name),
                 "font": ("Serif", 16)}
         return chip
 
