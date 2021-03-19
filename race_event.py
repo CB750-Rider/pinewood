@@ -37,6 +37,7 @@ import numpy as np
 import yaml
 from typing import List
 from pdflatex import PDFLaTeX
+from typing import Iterable
 
 default_heat_name = "No_Heat"
 
@@ -54,11 +55,13 @@ mc_table_footer = r"""\end{tabular}
 \end{document}"""
 
 current_car_number = 1
+
+
 def next_car_number():
     global current_car_number
     out = current_car_number
     if current_car_number == 12:
-        current_car_number=14
+        current_car_number = 14
     else:
         current_car_number += 1
     return out
@@ -197,7 +200,7 @@ class Racer:
 
     def save_heat(self):
         self.hist[self.heat_name] = [self.race_log_nums, self.race_plan_nums,
-                                self.race_times, self.race_positions]
+                                     self.race_times, self.race_positions]
 
     def clear_races(self):
         if self.get_worst() > 0.0:
@@ -309,7 +312,12 @@ class Heat:
 
 
 class Race:
-    def __init__(self, heats, racers, number, is_empty, n_lanes=4):
+    def __init__(self,
+                 heats: Iterable[Heat],
+                 racers: Iterable[Racer],
+                 number: int,
+                 is_empty: bool,
+                 n_lanes: int=4):
         self.heats = heats  # 1 x n_lanes
         self.racers = racers  # 1 x n_lanes
         self.plan_number = number  # The number from the race plan
@@ -387,16 +395,42 @@ class Race:
         out += "\\\\\n"
         return out
 
+    def has_participants(self, racers: Iterable):
+        for racer in racers:
+            if type(racer) is Racer:
+                is_in_race = False
+                for valid_racer in self.racers:
+                    if valid_racer == racer:
+                        is_in_race = True
+                if not is_in_race:
+                    return False
+            else:
+                is_in_race = False
+                for valid_racer in self.racers:
+                    if racer == valid_racer.name:
+                        is_in_race = True
+                if not is_in_race:
+                    return False
+        return True
+
 
 class Event:
     counts: List = []
 
     def __init__(self,
-                 event_file=None,
-                 log_file=None,
-                 n_lanes=4,
-                 verbose=False,
-                 check_log_file=True):
+                 event_file: str = None,
+                 log_file: str = None,
+                 n_lanes: int = 4,
+                 verbose: bool = False):
+        """
+        Event holds all the information for the race day.
+
+        :param event_file:
+        :param log_file:
+        :param n_lanes:
+        :param verbose:
+        :param check_log_file:
+        """
         self.verbose = verbose
         self.n_lanes = n_lanes
 
@@ -409,17 +443,11 @@ class Event:
         self.last_race = 0
         self.plan_dictionary = None
         if event_file is not None:
-            self.event_file_name = event_file
             self.load_races_from_file(event_file)
 
         # Load the log file that gives what part of the race has
         # already run
-        # TODO Check the log file to make sure it matches the plan
-        # TODO Start here with converting the log to YAML
-        self.race_log_file = None
-        self.log_file_name = "/dev/null"
         if log_file is not None:
-            self.log_file_name = log_file
             self.read_log_file(log_file)
 
             # we will be recording race data as it comes in, so open
@@ -429,23 +457,6 @@ class Event:
             except OSError:
                 print("Unable to open {} for writing.")
                 pass
-        elif check_log_file:
-            decision = input("Attempt to use the default log file? [Y/n]")
-            if 'n' or 'N' in decision:
-                try:
-                    self.race_log_file = open("log_file.yaml", "a+")
-                    self.log_file_name = "log_file.yaml"
-                except OSError:
-                    print("Unable to open {} for writing.".format("log_file.yaml"))
-                    raise
-            else:
-                decision = input("Continue without logging? [y/N]")
-                if 'y' or 'Y' in decision:
-                    print("Continuing on.")
-                    self.race_log_file = open("/dev/null", "w")
-                    self.log_file_name = "/dev/null"
-                else:
-                    raise ValueError
         else:
             print("Logging disabled")
             self.race_log_file = open("/dev/null", "w")
@@ -627,43 +638,43 @@ class Event:
         race.save_results(self.current_race_log_idx, times, counts)
         if accept:
             self.accept_results()
-        #TODO Here were are saving counts in a second data array (they are also saved in the races). This was a bug fix
+        # TODO Here were are saving counts in a second data array (they are also saved in the races). This was a bug fix
         # so that we could switch races and get the times to switch. Really, we should simplify things so that the data
         # are only stored in one place. LRB Oct 10 2020
         while self.current_race_log_idx >= len(self.counts):
-            self.counts.append([0]*self.n_lanes)
+            self.counts.append([0] * self.n_lanes)
         for li in range(self.n_lanes):
             self.counts[self.current_race_log_idx][li] = counts[li]
         self.current_race_log_idx += 1
 
     def get_counts_for_race(self, race_idx):
         if race_idx >= len(self.counts):
-            return [0]*self.n_lanes
+            return [0] * self.n_lanes
         else:
             return self.counts[race_idx]
 
     def set_counts_for_race(self, lane_idx, count):
         while len(self.counts) <= self.current_race_log_idx:
-            self.counts.append([0]*self.n_lanes)
+            self.counts.append([0] * self.n_lanes)
         self.counts[self.current_race_log_idx][lane_idx] = count
 
     def mc_table_header(self):
-        out = r"\begin{tabular}{l|" + " c"*self.n_lanes + "}\n"
+        out = r"\begin{tabular}{l|" + " c" * self.n_lanes + "}\n"
         out += r"\textbf{Race}"
         for i in range(self.n_lanes):
-            out += r" & \textbf{Lane " + str(i+1) + "}"
+            out += r" & \textbf{Lane " + str(i + 1) + "}"
         out += r" \\" + "\n" + r"\hline " + "\n"
         return out
 
     def print_plan_mc_sheet(self, file_name):
-        with open('mc_sheet.tex','w') as tempfile:
+        with open('mc_sheet.tex', 'w') as tempfile:
             tempfile.write(mc_sheet_header + self.mc_table_header())
             for idx, race in enumerate(self.races):
-                tempfile.write(race.as_mc_sheet(idx+1))
+                tempfile.write(race.as_mc_sheet(idx + 1))
             tempfile.write(mc_table_footer)
         pdfl = PDFLaTeX.from_texfile('mc_sheet.tex')
         pdf, log, complete = pdfl.create_pdf()
-        with open(file_name,'wb') as outfile:
+        with open(file_name, 'wb') as outfile:
             outfile.write(pdf)
 
     def print_status_report(self, fname):
@@ -705,20 +716,27 @@ class Event:
             print("No previous results were found.")
             return
         for line in infile:
-            print(line)
             self.get_results_from_line(line)
         infile.close()
 
     def get_results_from_line(self, line):
         fields = line.split(',')
-        self.current_race_log_idx = int(fields[0])
-        self.goto_race(int(fields[1]))
+        racer_names = [x for x in fields[2::3]]
         times = [float(x) for x in fields[3::3]]
         counts = [int(x) for x in fields[4::3]]
-        if "Accepted" in line:
-            self.record_race_results(times, counts, True)
-        else:
-            self.record_race_results(times, counts, False)
+
+        try:
+            race = self.races[int(fields[1])]
+        except IndexError:
+            # This is not a valid line, so skip it
+            return
+        if race.has_participants(racer_names):
+            self.current_race_log_idx = int(fields[0])
+            self.goto_race(int(fields[1]))
+            if "Accepted" in line:
+                self.record_race_results(times, counts, True)
+            else:
+                self.record_race_results(times, counts, False)
 
     def close_log_file(self):
         if self.race_log_file:
@@ -746,7 +764,9 @@ class Event:
         self.goto_race(self.current_race_idx - 1)
 
     def goto_race(self, idx):
-        if idx < 0:
+        if self.last_race < 0: # If we call this before we populate races the next two statements lead to an infinite recursion.
+            self.current_race_idx = 0
+        elif idx < 0:
             self.goto_race(0)
         elif idx > self.last_race:
             self.goto_race(self.last_race)
@@ -870,6 +890,8 @@ class Event:
                 self.current_race = self.races[0]
             except IndexError:
                 self.current_race = None
+
+        self.last_race = len(self.races) - 1
 
     def parse_cell_text(self, text):
         racer_name, heat_name = text.split(":")

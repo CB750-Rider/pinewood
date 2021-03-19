@@ -25,6 +25,7 @@ from typing import List
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog
+import tkinter.messagebox
 from race_event import Event
 import argparse
 from rm_socket import TimerComs
@@ -34,11 +35,11 @@ description = "A Graphical Interface for managing Pinewood Derby Races"
 
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('--hosts_file', help='A file with the ip and port addresses of the lane timers (hosts).',
-                    default=None)
+                    default='lane_hosts_LOCAL.csv')
 parser.add_argument('--event_file', help='A file with the event plan listed.',
-                    default=None)
+                    default='demo_race.yaml')
 parser.add_argument('--log_file', help='The name of a file to save race times to.',
-                    default=None)
+                    default='log_file.yaml')
 
 host = ['', '', '', '']
 port = [0, 0, 0, 0]
@@ -83,7 +84,6 @@ class RaceSelector:
                  outer_frame: tk.Frame,
                  parent):
         global timer_coms, race_count
-        race = parent.event.current_race
         self.parent = parent
         self.event = parent.event
         rt = tk.Frame(outer_frame)
@@ -91,14 +91,29 @@ class RaceSelector:
         w = tk.Label(rt, text="Race log #", font=small_font)
         w.pack(side=tk.LEFT, fill=tk.X, expand=1)
 
-        if race is None:
+        if self.event.current_race is None:
             self.option_list = [str(self.event.current_race_log_idx), ]
-        else:
-            if len(race.race_number):
-                self.option_list = [str(x) for x in race.race_number]
-                self.option_list.append(self.event.current_race_log_idx)
+            self.event.generate_race_plan()
+            if self.event.current_race is None:
+                tk.messagebox.showerror("Unusable Plan Error",
+                                        """The race plan was not sufficient to create even one race.
+                Please create a usable plan and re-run. 
+                See demo_race.yaml for an example.""")
+                raise ValueError("Unusable race plan.")
             else:
-                self.option_list = [str(self.event.current_race_log_idx), ]
+                result = tk.messagebox.askquestion('Race Plan Generated',
+                                                   'Would you like to open the planning dialog so you can save/edit the plan?')
+                if result == 'yes':
+                    parent.edit_race_plan()
+            race = self.event.current_race
+        else:
+            race = self.event.current_race
+
+        if len(race.race_number):
+            self.option_list = [str(x) for x in race.race_number]
+            self.option_list.append(self.event.current_race_log_idx)
+        else:
+            self.option_list = [str(self.event.current_race_log_idx), ]
         if len(self.option_list) == 0:
             self.option_list = ["0", ]
 
@@ -514,7 +529,7 @@ class RaceManagerGUI:
 
         self.event_file_name = event_file_name
         self.event = Event(event_file_name, log_file_name, self.n_lanes)
-        self.log_file_name = self.event.log_file_name
+        self.log_file_name = log_file_name
 
         self.window = tk.Tk()
         self.window.title("Pack 402 Pinewood Derby")
@@ -644,12 +659,11 @@ class RaceManagerGUI:
         if self.log_file_name == '/dev/null':
             self.event.close_log_file()
             self.event = Event(event_file=self.event_file_name, log_file=None,
-                               n_lanes=self.n_lanes, check_log_file=False)
+                               n_lanes=self.n_lanes)
         else:
             self.event = Event(event_file=self.event_file_name,
                                log_file=self.log_file_name,
-                               n_lanes=self.n_lanes,
-                               check_log_file=False)
+                               n_lanes=self.n_lanes)
         self.set_active_race_idx(0)
         self.update_race_display(new_race=False)
 
@@ -932,7 +946,8 @@ if __name__ == "__main__":
             print("Socket disconnection detected.")
             open_conn = timer_coms.sockets_are_in_list(open_sockets)
             rm_gui.update_race_display(new_race=False)
-            timer_coms.connect_to_track_hosts(autoclose=True)
+            tk.messagebox.showinfo("Connection Dropped", "A socket connection appears to have failed.")
+            timer_coms.connect_to_track_hosts(autoclose=True, reset=True)
         for ready_socket in ready_sockets:
             s_idx = timer_coms.socket_index(ready_socket)
             if not timer_coms.is_conn[s_idx]:
@@ -976,7 +991,8 @@ if __name__ == "__main__":
                     rm_gui.controls_row.enable_navigation()
             else:
                 if len(data) == 0:  # indicative of socket failure
-                    timer_coms.connect_to_track_hosts()
+                    tk.messagebox.showinfo("Connection Dropped", "A socket connection appears to have failed.")
+                    timer_coms.connect_to_track_hosts(autoclose=True, reset=True)
                 else:
                     print(data)
 

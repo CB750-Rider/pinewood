@@ -61,8 +61,11 @@ class TimerComs:
 
     def shutdown(self):
         for i in range(self.n_lanes):
+            try:
+                self.sockets[i].shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
             self.sockets[i].close()
-            #self.sockets[i].shutdown(socket.SHUT_RDWR)
 
     def get_hosts_and_ports(self, hosts_file):
         # TODO Add YAML parser
@@ -89,7 +92,10 @@ class TimerComs:
         for i, sckt in enumerate(self.sockets):
             if self.is_conn[i]:
                 self.is_conn[i] = False
-                #sckt.shutdown(socket.SHUT_RDWR)
+                try:
+                    sckt.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
                 sckt.close()
         self.sockets = [socket.socket(socket.AF_INET, socket.SOCK_STREAM) for _ in range(4)]
         self.all_connected = False
@@ -97,11 +103,14 @@ class TimerComs:
     def close_conn_window(self):
         self.connection_window_open=False
 
-    def connect_to_track_hosts(self, autoclose=False):
+    def connect_to_track_hosts(self, autoclose=False, reset=False):
         self.connection_window_open = True
+
+        if reset:
+            self.reset_sockets()
+
         rb = self.entry_widgets
         port_text = [[]] * self.n_lanes
-        #self.reset_sockets()
 
         popup = tk.Toplevel(self.parent)
         popup.wm_title("Connection To Track")
@@ -115,9 +124,11 @@ class TimerComs:
             #    self.hosts[i], self.ports[i], fg='#050505'))
             rb[i] = tk.Entry(popup, textvariable=port_text[i])
             rb[i].pack()
-        tk.Button(popup, text="Reset", command=self.reset_sockets).pack()
+        reset_button = tk.Button(popup, text="Reset", command=self.reset_sockets).pack()
         last_time = time.clock_gettime(time.CLOCK_MONOTONIC) - 10.0
         loop_count = 5
+
+        popup.lift()
 
         if self.all_connected:
             for i in range(self.n_lanes):
@@ -207,7 +218,10 @@ class TimerComs:
             self.connect_to_track_hosts()
 
     def get_data_from_socket(self, open_socket):
-        socket_data = open_socket.recv(64)
+        try:
+            socket_data = open_socket.recv(64)
+        except ConnectionResetError:
+            return "".encode('utf-8')
         return socket_data
 
     def select(self, wait_len=0.05):

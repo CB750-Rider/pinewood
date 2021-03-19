@@ -52,13 +52,29 @@ class Lane:
         self.port = ''
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.check_button = None
+        self.drop_button = None
 
     def add_lane_to_window(self, parent: tk.Widget):
         self.reporting = tk.BooleanVar()
         self.reporting.set(True)
-        self.check_button = tk.Checkbutton(parent, text="Lane {}".format(self.number)
+        frame = tk.Frame(parent)
+        frame.pack()
+        self.check_button = tk.Checkbutton(frame, text="Lane {}".format(self.number)
                                            , variable=self.reporting)
-        self.check_button.pack()
+        self.check_button.pack(side=tk.LEFT)
+        self.drop_button = tk.Button(frame, text="Drop", command=self.drop_connection)
+        self.drop_button.pack(side=tk.RIGHT)
+
+    def drop_connection(self):
+        if self.drop_button['text'] == 'Drop':
+            try:
+                self._socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            self._socket.close()
+            self.drop_button['text'] = 'Connect'
+        else:
+            self.start_socket()
 
     def start_socket(self):
         Thread(target=self._await_connection, daemon=True).start()

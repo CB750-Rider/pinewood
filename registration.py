@@ -65,7 +65,7 @@ class RegistrationWindow:
         self.out_file_name = self.in_file_name
 
         if event is None:
-            self.event = Event(event_file=event_file, check_log_file=False)
+            self.event = Event(event_file=event_file)
         else:
             self.event = event
 
@@ -104,7 +104,7 @@ class RegistrationWindow:
 
     def open_event(self):
         self.in_file_name = filedialog.askopenfilename()
-        self.event = Event(event_file=self.in_file_name, check_log_file=False)
+        self.event = Event(event_file=self.in_file_name)
         self.active_heat = None
         self.set_heat_pane()
         self.check_racer_pane()
