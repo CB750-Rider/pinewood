@@ -39,9 +39,6 @@ This is a convenience application for developers. It simulates the timers so tha
 
 ## TODO List
 
-1. The code breaks without arguments. Make it so it
-   will run and at least warn the user about what it 
-   needs.
 1. Convert the race log to yaml. <- Skipping for now. I don't see a huge benefit
 2. Improve this README.
 3. Auto-assign car numbers.

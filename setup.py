@@ -20,7 +20,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pinewood",
-    version="0.0.1",
+    version="0.1.0",
     author="Dr. Lee Burchett",
     author_email="lee.r.burchett@gmail.com",
     description="An application suite for running pinewood derby races.",

@@ -1,0 +1,46 @@
+heats:
+- ability_rank: 1
+  name: Lions
+  racers:
+  - car_number: 26
+    name: Lion One
+    rank: Lion
+  - car_number: 27
+    name: Lion Two
+    rank: Lion
+  - car_number: 28
+    name: Lion Three
+    rank: Lion
+- ability_rank: 4
+  name: Wolves
+  racers:
+  - car_number: 23
+    name: Wolf One
+    rank: Wolf
+  - car_number: 24
+    name: Wolf Two 
+    rank: Wolf
+- ability_rank: 7
+  name: Bears
+  racers:
+  - car_number: 15
+    name: Bear One
+    rank: Bear
+  - car_number: 16
+    name: Bear Two 
+    rank: Bear
+  - car_number: 17
+    name: Bear Three
+    rank: Bear
+- ability_rank: 10 
+  name: Webelos
+  racers:
+  - car_number: 6
+    name: Webelo One
+    rank: Webelo
+  - car_number: 7
+    name: Webelo Two 
+    rank: Webelo
+  - car_number: 8
+    name: Webelo Three 
+    rank: Webelo
