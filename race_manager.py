@@ -24,7 +24,7 @@ limitations under the License.
 from typing import List
 import numpy as np
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, IntVar
 import tkinter.messagebox
 from race_event import Event
 import argparse
@@ -50,9 +50,9 @@ placements = [-1, -1, -1, -1]
 race_count = [0, 0, 0, 0]
 status_indicators = [[], [], [], []]
 # dimensions are y = row x = column rid[y][x]
-widths = {"Times Column": 450,
+widths = {"Times Column": 430,
           "Race Column": 350,
-          "Top Spacer": 33}
+          "Top Spacer": 30}
 race_ready = [False, False, False, False]  # "Yellow LED"
 race_complete = [True, True, True, True]  # "Red LED"
 race_running = [False, False, False, False]  # "Green LED"
@@ -66,6 +66,7 @@ race_needs_written = False
 block_loading_previous_times = False
 req_win: tk.Toplevel
 timer_coms: TimerComs
+reset_lane = 0  # 0 indexed.
 
 
 # GUI STUFF
@@ -386,11 +387,15 @@ class RaceTimes:
         if race_count[self.idx]:
             final_time = race_count[self.idx] / self.parent.parent.clock_rate
             self.race_time_display.config(text="{0:.3f}".format(final_time), fg='#000000')
+            return True
         else:
-            self.race_time_display.config(**self.race_time_default)
+            self.race_time_display.config(self.race_time_default)
+            self.reset_placement_display()
+            return False
 
     def update_placement_display(self):
         global placement_displays, placements
+        race_idx = rm_gui.times_column.race_selector.get_race_idx_from_selector()
         if placements[self.idx] >= 0:
             self.placement_display.config({"bg": self.colors[self.idx]})
             self.placement_display.config(self.placement_settings[placements[self.idx]])
@@ -430,8 +435,8 @@ class TimesColumn:
     def update(self, new_race=True):
         for rt in self.race_times:
             rt.status_indicator.update(new_race=new_race)
-            rt.update_race_time_display()
-            rt.update_placement_display()
+            if rt.update_race_time_display():
+                rt.update_placement_display()
 
     def reset_race_time_display(self, idx):
         self.race_times[idx].reset_race_time_display()
@@ -481,6 +486,7 @@ class RaceColumn:
 class ControlsRow:
     navigation_buttons: dict = {}
     accept_button: tk.Button = None
+    autoReset: IntVar = None
 
     def __init__(self,
                  parent):
@@ -494,6 +500,10 @@ class ControlsRow:
         bb = tk.Button(cr, text="Move Forward", command=goto_next_race)
         bb.pack(side=tk.LEFT)
         self.navigation_buttons['Move Forward'] = bb
+        self.autoReset = IntVar()
+        ta = tk.Checkbutton(cr, text="Auto Reset", variable=self.autoReset, onvalue=1, offvalue=0)
+        ta.pack(side=tk.LEFT)
+        self.navigation_buttons['Auto Reset'] = ta
         cr.pack()
 
     def disable_navigation(self):
@@ -538,7 +548,8 @@ class RaceManagerGUI:
         if hosts_file_name is not None:
             self.timer_coms = TimerComs(
                 parent=self.window,
-                hosts_file=hosts_file_name
+                hosts_file=hosts_file_name,
+                reset_lane=reset_lane
             )
 
         self.add_menu_bar()
@@ -830,14 +841,16 @@ def accept_results():
     global rm_gui
     race_needs_written = True
     if all(race_complete):
-        send_reset_to_track(accept=True)
+        send_reset_to_track(accept=True,
+                            send_reset=rm_gui.controls_row.autoReset.get())
         rm_gui.update_race_display(new_race=True)
     elif any(race_complete):
         request_to_post_results()
     else:
         print("{} {} {}".format(race_ready, race_running, race_complete))
         rm_gui.event.goto_next_race()
-        send_reset_to_track(accept=False)
+        send_reset_to_track(accept=False,
+                            send_reset=rm_gui.controls_row.autoReset.get())
         rm_gui.update_race_display(new_race=False)
 
 
@@ -911,9 +924,10 @@ def record_race_results(accept=False):
         rm_gui.set_active_race_idx(rm_gui.event.current_race_log_idx)
 
 
-def send_reset_to_track(accept=False):
+def send_reset_to_track(accept=False, send_reset=True):
     global timer_coms, race_needs_written, rm_gui, race_running
-    timer_coms.send_reset_to_track(accept=accept)
+    if send_reset:
+        timer_coms.send_reset_to_track(accept=accept)
     if race_needs_written:
         record_race_results(accept=accept)
         race_needs_written = False
@@ -932,7 +946,8 @@ if __name__ == "__main__":
     )
 
     timer_coms = TimerComs(rm_gui.window,
-                           hosts_file=cli_args.hosts_file)
+                           hosts_file=cli_args.hosts_file,
+                           reset_lane=reset_lane)
 
     timer_coms.connect_to_track_hosts(autoclose=True)
 
@@ -949,7 +964,10 @@ if __name__ == "__main__":
             tk.messagebox.showinfo("Connection Dropped", "A socket connection appears to have failed.")
             timer_coms.connect_to_track_hosts(autoclose=True, reset=True)
         for ready_socket in ready_sockets:
-            s_idx = timer_coms.socket_index(ready_socket)
+            try:
+                s_idx = timer_coms.socket_index(ready_socket)
+            except ValueError:
+                break
             if not timer_coms.is_conn[s_idx]:
                 continue
             data = timer_coms.get_data_from_socket(ready_socket)
