@@ -985,9 +985,14 @@ def create_heat_from_dict(heat):
     out = Heat(name=heat['name'],
                racers=[],
                ability_rank=heat['ability_rank'])
-    for rcr in heat['racers']:
-        racer = create_racer_from_dict(rcr, heat['name'])
-        out.add_racer(racer)
+    try:
+        for rcr in heat['racers']:
+            racer = create_racer_from_dict(rcr, heat['name'])
+            out.add_racer(racer)
+    except TypeError:
+        pass
+    except KeyError:
+        pass
     return out
 
 
