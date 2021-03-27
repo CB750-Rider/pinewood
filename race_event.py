@@ -894,7 +894,10 @@ class Event:
         self.last_race = len(self.races) - 1
 
     def parse_cell_text(self, text):
-        racer_name, heat_name = text.split(":")
+        try:
+            racer_name, heat_name = text.split(":")
+        except ValueError:
+            return self.heats[-1], self.heats[-1].racers[0]
         out_heat = self.heats[-1]
         out_racer = out_heat.racers[0]
         for heat in self.heats:
