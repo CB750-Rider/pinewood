@@ -858,7 +858,7 @@ def find_race_count(data):
     print(data)
     num = data.decode('utf-8').split(":")[1][:-1]
     count = int(num)
-    print("Count = {}, Seconds = {}".format(count, np.float(count) / 2000.0))
+    print("Count = {}, Seconds = {}".format(count, float(count) / 2000.0))
     return count
 
 
