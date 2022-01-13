@@ -41,11 +41,11 @@ parser.add_argument('--event_file', help='A file with the event plan listed.',
 parser.add_argument('--log_file', help='The name of a file to save race times to.',
                     default='log_file.yaml')
 
-host = ['', '', '', '']
-port = [0, 0, 0, 0]
-stringlen = 64
-race_time_displays = [[], [], [], []]  # race time displays
-placement_displays = [[], [], [], []]  # placement displays
+# host = ['', '', '', '']
+# port = [0, 0, 0, 0]
+# stringlen = 64
+# race_time_displays = [[], [], [], []]  # race time displays
+# placement_displays = [[], [], [], []]  # placement displays
 placements = [-1, -1, -1, -1]
 race_count = [0, 0, 0, 0]
 status_indicators = [[], [], [], []]
@@ -64,12 +64,13 @@ large_font = ("Serif", 22)
 program_running = True
 race_needs_written = False
 block_loading_previous_times = False
-req_win: tk.Toplevel
-timer_coms: TimerComs
-reset_lane = 0  # 0 indexed.
 
 
-# GUI STUFF
+# GUI ELEMENTS
+""" These classes are for the different GUI portions. They are in a 
+hierarchical order, more or less. The later classes contain instances
+of the earlier classes. """
+
 
 class RaceSelector:
     race_menu: tk.OptionMenu = None
@@ -84,7 +85,7 @@ class RaceSelector:
     def __init__(self,
                  outer_frame: tk.Frame,
                  parent):
-        global timer_coms, race_count
+        global race_count
         self.parent = parent
         self.event = parent.event
         rt = tk.Frame(outer_frame)
@@ -131,13 +132,15 @@ class RaceSelector:
             self.active_race_idx = self.event.current_race_log_idx
         self.current_race_str.trace("w", self.load_previous_times)
         self.selector_frame = tk.Frame(rt)
-        race_selector = tk.OptionMenu(self.selector_frame, self.current_race_str, *self.option_list,
-                                      command=self.on_selected)
+        race_selector = tk.OptionMenu(
+            self.selector_frame, self.current_race_str,
+            *self.option_list, command=self.on_selected)
         race_selector.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
         self.selector_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
         self.race_menu = race_selector
         # TODO Should the send_reset_to_track accept?
-        b = tk.Button(rt, text="add/reset", command=send_reset_to_track, font=small_font)
+        b = tk.Button(rt, text="add/reset", command=send_reset_to_track,
+                      font=small_font)
         b.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
         self.add_reset_button = b
         rt.pack(fill=tk.X)
@@ -515,6 +518,7 @@ class ControlsRow:
         self.navigation_buttons["Move Back"].configure(state='normal')
 
 
+# THE GUI
 class RaceManagerGUI:
     window_size = "1850x1024"
     window: tk.Tk
@@ -535,7 +539,9 @@ class RaceManagerGUI:
     def __init__(self,
                  hosts_file_name: str = None,
                  event_file_name: str = None,
-                 log_file_name: str = None):
+                 log_file_name: str = None,
+                 reset_lane: int = 0,
+                 parent=None):
 
         self.event_file_name = event_file_name
         self.event = Event(event_file_name, log_file_name, self.n_lanes)
@@ -559,15 +565,17 @@ class RaceManagerGUI:
         self.controls_row = ControlsRow(self.window)
         # Add window delete callback
         self.window.protocol("WM_DELETE_WINDOW", self.close_manager)
+        self.parent = parent
 
     def mainloop(self):
         self.window.mainloop()
 
     def add_menu_bar(self):
         menu = tk.Menu(self.window)
+        app = self.parent
         self.window.config(menu=menu)
         file_menu = tk.Menu(menu)
-        file_menu.add_command(label="Generate Report", command=generate_report)
+        file_menu.add_command(label="Generate Report", command=app.generate_report)
         open_menu = tk.Menu(file_menu)
         open_menu.add_command(label="Event File", command=self.load_event_file)
         open_menu.add_command(label="Race Log", command=self.load_race_log)
@@ -746,68 +754,79 @@ class RaceManagerGUI:
         tk.Label(popup, text="Editing the number of lanes and lane characteristics is not supported yet.\n").pack()
 
 
+# FUNCTIONAL CODE
 class RaceManager:
     event: Event = None
     rm_gui: RaceManagerGUI = None
     coms: TimerComs = None
     race_needs_written = False
+    req_win: tk.Toplevel = None
 
-    def __init__(self):
-        print("Write RaceManager")
+    def __init__(self,
+                 event_file_name: str = None,
+                 hosts_file_name: str = None,
+                 log_file_name: str = "race_manager.log",
+                 reset_lane: int = 0,  # gets the reset signal.
+                 ):
+        self.rm_gui = RaceManagerGUI(
+            event_file_name=event_file_name,
+            log_file_name=log_file_name,
+            hosts_file_name=hosts_file_name,
+            reset_lane=reset_lane,
+            parent=self
+        )
 
+        self.rm_gui.timer_coms.connect_to_track_hosts(autoclose=True)
 
-def request_to_post_results():
-    global req_win
-    req_win = tk.Toplevel()
-    req_win.title("Post Results?")
+    def request_to_post_results(self):
+        req_win = tk.Toplevel()
+        req_win.title("Post Results?")
 
-    question = tk.Label(req_win, text="""Not all racers have completed their runs.
-        Do you want to post the current results, or just move on to the next
-                        race without posting?""")
-    question.pack()
-    fm = tk.Frame(req_win)
-    ans1 = tk.Button(fm, text="Post Results", command=post_results)
-    ans1.pack(side=tk.LEFT)
-    ans2 = tk.Button(fm, text="Just Move On", command=just_move_on)
-    ans2.pack(side=tk.LEFT)
-    fm.pack()
-    req_win.update()
+        question = tk.Label(req_win, text=
+        """Not all racers have completed their runs.
+Do you want to: 
+ 1. post the current results, 
+ 2. wait a little longer, or
+ 3. just move on to the next race without posting?""")
+        question.pack()
+        fm = tk.Frame(req_win)
+        ans1 = tk.Button(fm, text="Post Results", command=self.post_results)
+        ans1.pack(side=tk.LEFT)
+        ans2 = tk.Button(fm, text="Wait", command=self.keep_waiting)
+        ans2.pack(side=tk.LEFT)
+        ans3 = tk.Button(fm, text="Just Move On", command=self.just_move_on)
+        ans3.pack(side=tk.LEFT)
+        fm.pack()
+        req_win.update()
+        self.req_win = req_win
 
+    def post_results(self):
+        self.req_win.destroy()
+        record_race_results(accept=True)  # TODO See if this can be removed. LRB
+        self.rm_gui.update_race_display()
 
-# RACE Functions
-def post_results():
-    global req_win, rm_gui
-    req_win.destroy()
-    record_race_results(accept=True)  # TODO See if this can be removed. LRB
-    # TODO March 7 2020
-    send_reset_to_track()
-    rm_gui.update_race_display()
+    def keep_waiting(self):
+        self.req_win.destroy()
 
+    def just_move_on(self):
+        self.req_win.destroy()
+        self.rm_gui.event.goto_next_race()
+        self.rm_gui.update_race_display()
 
-def just_move_on():
-    global req_win, rm_gui
-    req_win.destroy()
-    rm_gui.event.goto_next_race()
-    send_reset_to_track()
-    rm_gui.update_race_display()
-
-
-def generate_report():
-    global rm_gui
-    print("Write code to generate a standings report for the race.")
-    report_file_name = filedialog.asksaveasfilename(
-        title='Select a File to Save the Report In',
-        filetypes=(("Comma-Seperated Variable", "*.csv"),
-                   ("Text", "*.txt"),
-                   ("All Files", "*.*")))
-    if len(report_file_name) > 0:
-        rv = rm_gui.event.print_status_report(report_file_name)
-        if rv == 0:
-            di = tk.Toplevel()
-            m = tk.Label(di, text="File Written.", height=6, width=24)
-            m.pack()
-            di.protocol("WM_DELETE_WINDOW", di.destroy)
-            di.update()
+    def generate_report(self):
+        report_file_name = filedialog.asksaveasfilename(
+            title='Select a File to Save the Report In',
+            filetypes=(("Comma-Seperated Variable", "*.csv"),
+                       ("Text", "*.txt"),
+                       ("All Files", "*.*")))
+        if len(report_file_name) > 0:
+            rv = self.rm_gui.event.print_status_report(report_file_name)
+            if rv == 0:
+                di = tk.Toplevel()
+                m = tk.Label(di, text="File Written.", height=6, width=24)
+                m.pack()
+                di.protocol("WM_DELETE_WINDOW", di.destroy)
+                di.update()
 
 
 def goto_prev_race():
@@ -838,14 +857,14 @@ def goto_next_race():
 
 def accept_results():
     global race_complete, race_ready, race_running, race_needs_written, timer_coms
-    global rm_gui
+    global rm_gui, program
     race_needs_written = True
     if all(race_complete):
         send_reset_to_track(accept=True,
                             send_reset=rm_gui.controls_row.autoReset.get())
         rm_gui.update_race_display(new_race=True)
     elif any(race_complete):
-        request_to_post_results()
+        program.request_to_post_results()
     else:
         print("{} {} {}".format(race_ready, race_running, race_complete))
         rm_gui.event.goto_next_race()
@@ -906,7 +925,7 @@ def record_race_results(accept=False):
                 idx = -1
             print("idx={},copying results".format(idx))
             rm_gui.event.current_race.post_results_to_racers(i=idx)
-            times = [np.float(x) / rm_gui.clock_rate for x in race_count]
+            times = [float(x) / rm_gui.clock_rate for x in race_count]
             tmp_idx = rm_gui.event.current_race_log_idx
             rm_gui.event.current_race_log_idx = active_race_idx
             rm_gui.event.record_race_results(times, race_count, accept)
@@ -915,11 +934,11 @@ def record_race_results(accept=False):
             return
         # else:i
         #    # These results were not recorded yet
-        #    times = [np.float(x) / rm_gui.clock_rate for x in race_count]
+        #    times = [float(x) / rm_gui.clock_rate for x in race_count]
         #    rm_gui.event.record_race_results(times, race_count, accept)
         #    return
     if any(race_count):
-        times = [np.float(x) / rm_gui.clock_rate for x in race_count]
+        times = [float(x) / rm_gui.clock_rate for x in race_count]
         rm_gui.event.record_race_results(times, race_count, accept)
         rm_gui.set_active_race_idx(rm_gui.event.current_race_log_idx)
 
@@ -939,19 +958,16 @@ if __name__ == "__main__":
     post_placements = True
     cli_args = parser.parse_args()
 
-    rm_gui = RaceManagerGUI(
+    program = RaceManager(
         event_file_name=cli_args.event_file,
         log_file_name=cli_args.log_file,
-        hosts_file_name=cli_args.hosts_file
+        hosts_file_name=cli_args.hosts_file,
+        reset_lane=0
     )
 
-    timer_coms = TimerComs(rm_gui.window,
-                           hosts_file=cli_args.hosts_file,
-                           reset_lane=reset_lane)
+    rm_gui = program.rm_gui
 
-    timer_coms.connect_to_track_hosts(autoclose=True)
-
-    rm_gui.timer_coms = timer_coms
+    timer_coms = rm_gui.timer_coms
 
     while program_running:
         "Waiting for data from track hosts."
