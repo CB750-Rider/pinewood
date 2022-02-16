@@ -483,7 +483,11 @@ class RaceColumn:
     def update(self, chips, race_number):
         for idx, rid in enumerate(self.racer_id):
             rid.config(**chips[idx])
-        self.column_label.config(text="#{}".format(race_number))
+        if race_number > self.parent.event.last_race:
+            self.column_label.config(text="#--")
+            race_number = self.parent.event.last_race
+        else:
+            self.column_label.config(text="#{}".format(race_number))
 
 
 class ControlsRow:
@@ -633,13 +637,13 @@ class RaceManagerGUI:
 
         race_idx = rm_gui.event.current_race_idx
         self.racing_column.update(rm_gui.event.get_chips_for_race(race_idx), race_idx)
-        if race_idx + 1 > rm_gui.event.last_race:
-            race_idx = rm_gui.event.last_race
+        if race_idx > rm_gui.event.last_race:
+            race_idx = rm_gui.event.last_race + 1
         else:
             race_idx += 1
         self.on_deck_column.update(rm_gui.event.get_chips_for_race(race_idx), race_idx)
-        if race_idx + 1 > rm_gui.event.last_race:
-            race_idx = rm_gui.event.last_race
+        if race_idx > rm_gui.event.last_race:
+            race_idx = rm_gui.event.last_race + 1
         else:
             race_idx += 1
         self.next_up_column1.update(rm_gui.event.get_chips_for_race(race_idx), race_idx)

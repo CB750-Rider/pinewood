@@ -66,7 +66,6 @@ def next_car_number():
         current_car_number += 1
     return out
 
-
 # CLASS STUFF
 class Racer:
     global default_heat_name
@@ -743,18 +742,20 @@ class Event:
             self.race_log_file.close()
 
     def get_chips_for_race(self, race_number):
-        chips = [[], [], [], []]
+        chips = []
         if race_number < 0:
             print("""illegal race number, {}, requested. Returning
                   race[0]""".format(race_number))
             race_number = 0
-        elif race_number > self.last_race:
+        elif race_number > self.last_race + 1:
             print("""illegal race number, {}, requested. Returning the last race,
-                  race[{}]""".format(race_number, self.last_race))
-            race_number = self.last_race
+                  race[{}]""".format(race_number, self.last_race + 1))
+            race_number = self.last_race + 1
+        if race_number == self.last_race + 1:  # We are at the last race
+            return [Racer(0, "Empty", "Empty", "Empty").chip() for _ in range(self.n_lanes)]
         race = self.races[race_number]
         for i in range(self.n_lanes):
-            chips[i] = race.racers[i].chip()
+            chips.append(race.racers[i].chip())
         return chips
 
     def goto_next_race(self):
