@@ -550,6 +550,10 @@ class RaceManagerGUI:
         self.window = tk.Tk()
         self.window.title("Pack 402 Pinewood Derby")
         self.window.geometry(self.window_size)
+        if parent is None:
+            self.parent = self.window
+        else:
+            self.parent = parent
 
         if hosts_file_name is not None:
             self.timer_coms = TimerComs(
