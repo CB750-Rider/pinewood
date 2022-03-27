@@ -897,7 +897,8 @@ def accept_results():
     race_needs_written = True
     if all(race_complete):
         send_reset_to_track(accept=True,
-                            send_reset=rm_gui.controls_row.autoReset.get())
+                            send_reset=bool(
+                                rm_gui.controls_row.autoReset.get()))
         rm_gui.update_race_display(new_race=True)
     elif any(race_complete):
         program.request_to_post_results()
@@ -905,7 +906,8 @@ def accept_results():
         print("{} {} {}".format(race_ready, race_running, race_complete))
         rm_gui.event.goto_next_race()
         send_reset_to_track(accept=False,
-                            send_reset=rm_gui.controls_row.autoReset.get())
+                            send_reset=bool(
+                                rm_gui.controls_row.autoReset.get()))
         rm_gui.update_race_display(new_race=False)
 
 
@@ -968,10 +970,10 @@ def record_race_results(accept=False):
             rm_gui.event.record_race_results(times, race_count,
                                              race_idx, race_log_idx,
                                              accept)
-            rm_gui.event.current_race_log_idx = tmp_idx
-            rm_gui.update_race_selector(show_accepted_race=False,
+            rm_gui.update_race_selector(show_accepted_race=True,
                                         race_idx=rm_gui.event.current_race_idx,
                                         race_log_idx=race_log_idx)
+            rm_gui.event.current_race_log_idx = tmp_idx
             return
     if any(race_count):
         times = [float(x) / rm_gui.clock_rate for x in race_count]

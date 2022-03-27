@@ -740,6 +740,9 @@ class Event:
 
     def get_results_from_line(self, line):
         fields = line.split(',')
+        if len(fields) < 2:
+            return
+
         racer_names = [x for x in fields[2:-1:3]]
         times = [float(x) for x in fields[3::3]]
         counts = [int(x) for x in fields[4::3]]
