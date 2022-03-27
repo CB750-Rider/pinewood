@@ -324,7 +324,7 @@ class Race:
         self.times = []
         self.counts = []
         self.placements = []
-        self.current_race = 0
+        self.current_race_ = 0
         self.is_empty = is_empty  # 1 x n_lanes
         self.accepted_result_idx = -1  # The index of the race result that
         self.n_lanes = n_lanes
@@ -335,10 +335,19 @@ class Race:
 
     def save_results(self, race_number, race_times, counts):
         # Post results to the current race number
-        self.race_number.append(race_number)
-        self.times.append(race_times)
-        self.counts.append(counts)
-        self.placements.append(self.get_placements(race_times))
+        new_results = True
+        for idx, rn in enumerate(self.race_number): # Make sure we don't append an existing race
+            if rn == race_number:
+                self.times[idx] = race_times
+                self.counts[idx] = counts
+                self.placements[idx] = self.get_placements(race_times)
+                new_results = False
+        if new_results:
+            self.race_number.append(race_number)
+            self.times.append(race_times)
+            self.counts.append(counts)
+            self.placements.append(self.get_placements(race_times))
+        # TODO Figure out if this next line is needed in all cases. LRB March 26 2022.
         self.current_race = len(self.race_number) - 1
 
     def set_current_race(self, idx):
@@ -348,6 +357,12 @@ class Race:
             self.current_race = len(self.race_times) - 1
         else:
             self.current_race = idx
+
+    def find_race_by_log_idx(self, race_log_idx):
+        for jj, ii in enumerate(self.race_number):
+            if ii == race_log_idx:
+                return jj
+        return -1
 
     def post_results_to_racers(self, i=-1):
         if i < 0:
@@ -620,9 +635,10 @@ class Event:
             removed = True
         return removed
 
-    def record_race_results(self, times, counts, accept):
-        race = self.current_race
-        racers = self.current_race.racers
+    def record_race_results(self, times, counts, race_idx, race_log_idx,
+                            accept):
+        race = self.races[race_idx]
+        racers = race.racers
         if self.race_log_file:
             self.race_log_file.write("{},{}".format(
                 self.current_race_log_idx,
@@ -636,7 +652,7 @@ class Event:
                 self.race_log_file.write(",NA\n");
         race.save_results(self.current_race_log_idx, times, counts)
         if accept:
-            self.accept_results()
+            self.accept_results(race, race_log_idx)
         # TODO Here were are saving counts in a second data array (they are also saved in the races). This was a bug fix
         # so that we could switch races and get the times to switch. Really, we should simplify things so that the data
         # are only stored in one place. LRB Oct 10 2020
@@ -775,8 +791,9 @@ class Event:
             self.current_race_idx = idx
             self.current_race = self.races[idx]
 
-    def accept_results(self):
-        self.current_race.post_results_to_racers()
+    def accept_results(self, race: Race, race_log_idx):
+        idx = race.find_race_by_log_idx(race_log_idx)
+        race.post_results_to_racers(idx)
         self.goto_next_race()
 
     def print_plan_yaml(self,
@@ -953,7 +970,6 @@ class Event:
             out_list.append(race.get_racer_list([]))
 
         return out_list
-
 
 # DATA LOAD
 def create_heat_from_line(line):
