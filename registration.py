@@ -232,7 +232,11 @@ class RacerDialog:
             self.frame.pack(fill=tk.BOTH, expand=True)
 
             self.name_field = self.text_input("Name", 25, racer.name)
-            self.rank_field = self.text_input("Rank", 25, racer.rank)
+            if racer.car_name == "No_Car_Name":
+                car_name = ""
+            else:
+                car_name = racer.car_name
+            self.car_name_field = self.text_input("Car Name", 25, car_name)
             self.car_number_field = self.text_input("Car Number", 15, str(racer.car_number))
 
             self.car_status = self.car_status_list(racer.car_status)
@@ -323,7 +327,9 @@ class RacerDialog:
 
     def accept(self):
         self.racer.name = self.name_field.get()
-        self.racer.rank = self.rank_field.get()
+        car_name = self.car_name_field.get()
+        if len(car_name) > 0:
+            self.racer.car_name = car_name
         try:
             self.racer.car_number = int(self.car_number_field.get())
         except ValueError:

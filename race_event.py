@@ -149,6 +149,8 @@ class Racer:
             self.rank = dict['rank']
         if 'car_number' in dict.keys():
             self.car_number = dict['car_number']
+        if 'can_name' in dict.keys():
+            self.car_name = dict['car_name']
         if 'race_times' in dict.keys():
             self.race_times = dict['race_times']
         if 'race_counts' in dict.keys():
