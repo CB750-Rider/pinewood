@@ -999,7 +999,7 @@ if __name__ == "__main__":
         event_file_name=cli_args.event_file,
         log_file_name=cli_args.log_file,
         hosts_file_name=cli_args.hosts_file,
-        reset_lane=0
+        reset_lane=3
     )
 
     rm_gui = program.rm_gui
