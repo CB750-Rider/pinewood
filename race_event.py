@@ -33,6 +33,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import os
+
 import numpy as np
 import yaml
 from typing import List
@@ -462,7 +464,9 @@ class Event:
         # Load the log file that gives what part of the race has
         # already run
         if log_file is not None:
+            self.race_log_file = open(os.devnull, 'w')
             self.read_log_file(log_file)
+            self.race_log_file.close()
 
             # we will be recording race data as it comes in, so open
             # the logfile for appending.
@@ -736,22 +740,26 @@ class Event:
 
     def get_results_from_line(self, line):
         fields = line.split(',')
-        racer_names = [x for x in fields[2::3]]
+        racer_names = [x for x in fields[2:-1:3]]
         times = [float(x) for x in fields[3::3]]
         counts = [int(x) for x in fields[4::3]]
 
+        race_log_idx = int(fields[0])
+        race_idx = int(fields[1])
         try:
-            race = self.races[int(fields[1])]
+            race = self.races[race_idx]
         except IndexError:
             # This is not a valid line, so skip it
             return
         if race.has_participants(racer_names):
-            self.current_race_log_idx = int(fields[0])
-            self.goto_race(int(fields[1]))
+            self.current_race_log_idx = race_log_idx
+            self.goto_race(race_idx)
             if "Accepted" in line:
-                self.record_race_results(times, counts, True)
+                self.record_race_results(times, counts, race_idx,
+                                         race_log_idx, True)
             else:
-                self.record_race_results(times, counts, False)
+                self.record_race_results(times, counts, race_idx,
+                                         race_log_idx, False)
 
     def close_log_file(self):
         if self.race_log_file:
