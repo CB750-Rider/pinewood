@@ -76,12 +76,14 @@ class Racer:
                  car_number=0,
                  name="No_Name",
                  rank="No_Rank",
+                 car_name="No_Car_Name",
                  heat_name=default_heat_name,
                  heat_index=-1,
                  n_lanes=4,
                  car_status=None):
         self.name = name
         self.rank = rank
+        self.car_name = car_name
         self.n_lanes = n_lanes
         self.heat_name = heat_name
         self.index_in_heat = heat_index
@@ -136,7 +138,8 @@ class Racer:
         return {
             'name': self.name,
             'rank': self.rank,
-            'car_number': self.car_number
+            'car_number': self.car_number,
+            'car_name': self.car_name
         }
 
     def from_dict(self, dict):
@@ -164,8 +167,17 @@ class Racer:
             self.car_status = dict['car_status']
 
     def chip(self):
-        chip = {"text": "{}\n#{}:{}".format(self.name, self.car_number, self.heat_name),
-                "font": ("Serif", 16)}
+        if self.car_name=="No_Car_Name":
+            chip = {"text": "{}\n\n#{}:{}".format(self.name,
+                                                  self.car_number,
+                                                  self.heat_name),
+                    "font": ("Times", 21)}
+        else:
+            chip = {"text": "{}\n{}\n#{}:{}".format(self.name,
+                                                    self.car_name,
+                                                    self.car_number,
+                                                    self.heat_name),
+                    "font": ("Times", 21)}
         return chip
 
     def mc_sheet_label(self):

@@ -58,9 +58,9 @@ race_complete = [True, True, True, True]  # "Red LED"
 race_running = [False, False, False, False]  # "Green LED"
 reset_msg = "<reset>\n".encode('utf-8')
 s_conn = [False, False, False, False]  # Socket connection flags
-small_font = ("Serif", 12)
-med_font = ("Serif", 16)
-large_font = ("Serif", 22)
+small_font = ("Serif", 16)
+med_font = ("Times", 21)
+large_font = ("Times", 25)
 program_running = True
 race_needs_written = False
 block_loading_previous_times = False
@@ -114,7 +114,8 @@ class RaceSelector:
             self.option_list = [str(x) for x in race.race_number]
             self.option_list.append(self.event.current_race_log_idx)
         else:
-            self.option_list = [str(self.event.current_race_log_idx), ]
+            self.option_list = [self.str(self.event.current_race_idx,
+                                         self.event.current_race_log_idx), ]
         if len(self.option_list) == 0:
             self.option_list = ["0", ]
 
@@ -144,6 +145,9 @@ class RaceSelector:
         self.add_reset_button = b
         rt.pack(fill=tk.X)
 
+    def str(self, ri, rln):
+        return "{}:{}".format(ri+1, rln)
+
     def update(self,
                show_accepted_race=True,
                race_idx=-1,
@@ -163,10 +167,12 @@ class RaceSelector:
 
         # Create a new list
         if len(race.race_number):
-            self.option_list = [str(x) for x in race.race_number]
-            self.option_list.append(str(self.event.current_race_log_idx))
+            self.option_list = [self.str(race_idx, x) for x in race.race_number]
+            self.option_list.append(
+                self.str(race_idx, self.event.current_race_log_idx))
         else:
-            self.option_list = [str(self.event.current_race_log_idx), ]
+            self.option_list = [
+                self.str(race_idx, self.event.current_race_log_idx), ]
 
         if race.accepted_result_idx >= 0:
             idx = race.accepted_result_idx
@@ -174,9 +180,11 @@ class RaceSelector:
             if show_accepted_race:
                 self.current_race_str.set(self.option_list[idx])
             else:
-                self.current_race_str.set(str(self.active_race_log_idx))
+                self.current_race_str.set(
+                    self.str(race_idx, self.active_race_log_idx))
         else:
-            self.current_race_str.set(str(self.active_race_log_idx))
+            self.current_race_str.set(
+                self.str(race_idx, self.active_race_log_idx))
 
         self.race_menu = tk.OptionMenu(self.selector_frame,
                                        self.current_race_str,
@@ -195,7 +203,9 @@ class RaceSelector:
         self.parent.update_race_display(new_race=False)
 
     def get_race_idx_from_selector(self):
-        return int(self.current_race_str.get().split(' ')[0])
+        s1 = self.current_race_str.get().split(':')[-1]
+        s2 = s1.split(' ')[0]
+        return int(s2)
 
     def load_previous_times(self, *args):
         global race_running, block_loading_previous_times
@@ -433,8 +443,14 @@ class TimesColumn:
         self.parent = parent  # Parent is RaceManagerGUI
         self.event = parent.event
         tc = tk.Frame(parent_widget, width=widths["Times Column"])
-        w = tk.Label(tc, text="Times", font=large_font)
-        w.pack(fill=tk.X)
+        ti = tk.Frame(tc)
+        ti.pack(side='top', fill=tk.BOTH)
+        w = tk.Label(ti, text="      ", font=large_font)
+        w.pack(side='left', fill=tk.X, expand=1)
+        w = tk.Label(ti, text="Status", font=large_font)
+        w.pack(side='left', fill=tk.X, expand=1)
+        w = tk.Label(ti, text=" Times", font=large_font)
+        w.pack(side='left', fill=tk.X, expand=1)
         self.race_selector = RaceSelector(tc, parent)
         self.race_times = [RaceTimes(tc, ri, self) for ri in range(parent.n_lanes)]
         for rt in self.race_times:
@@ -480,7 +496,7 @@ class RaceColumn:
         self.title = tk.Label(rc, text=title, font=large_font)
         self.title.pack(fill=tk.X)
         bc = tk.Frame(rc, height=widths["Top Spacer"])
-        self.column_label = tk.Label(bc, text="00", font=("Serif", 18))
+        self.column_label = tk.Label(bc, text="00", font=med_font)
         self.column_label.pack(fill=tk.X)
         bc.pack(fill=tk.X)
         self.racer_id = []
@@ -494,9 +510,9 @@ class RaceColumn:
             rid.config(**chips[idx])
         if race_number > self.parent.event.last_race:
             self.column_label.config(text="#--")
-            race_number = self.parent.event.last_race
+            #race_number = self.parent.event.last_race
         else:
-            self.column_label.config(text="#{}".format(race_number))
+            self.column_label.config(text="#{}".format(race_number+1))
 
 
 class ControlsRow:
