@@ -1070,7 +1070,7 @@ def create_race_from_dict(race, available_heats):
     race_num = race['planned_number']
     heats = []
     racers = []
-    is_empty = np.zeros(len(race['entries']), dtype=np.bool)
+    is_empty = np.zeros(len(race['entries']), dtype=np.bool_)
     for li, ent in enumerate(race['entries']):
         if ent['empty_lane']:
             heats.append(available_heats[-1])
