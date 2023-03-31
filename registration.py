@@ -60,6 +60,8 @@ class RegistrationWindow:
                  event: Event = None):
         self.top = top
 
+        top.title(event_file)
+
         self.in_file_name = event_file
 
         self.out_file_name = self.in_file_name
@@ -214,6 +216,7 @@ class RacerDialog:
         else:
             heat_idx = parent.event.heat_index(heat_name=racer.heat_name)
         if heat_idx < 0:
+            # TODO Maybe we just let them and put them in heat zero? LRB March 2023
             text = tk.Label(self._window, text="Please, select a heat before attempting to add a racer",
                             font=("Serif", 14))
             text.pack()
@@ -239,13 +242,6 @@ class RacerDialog:
             self.car_name_field = self.text_input("Car Name", 25, car_name)
             self.car_number_field = self.text_input("Car Number", 15, str(racer.car_number))
 
-            self.car_status = self.car_status_list(racer.car_status)
-
-            text = tk.Label(self.frame, text="Notes")
-            text.pack()
-            self.notes = tk.Text(self.frame)
-            self.notes.pack(expand=True, fill=tk.BOTH)
-
             bottom_frame = tk.Frame(self.frame)
             bottom_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -265,6 +261,13 @@ class RacerDialog:
 
             cancel = tk.Button(bottom_frame, text="Cancel", command=self._window.destroy)
             cancel.pack(side=tk.RIGHT)
+
+            self.car_status = self.car_status_list(racer.car_status)
+
+            text = tk.Label(self.frame, text="Notes")
+            text.pack()
+            self.notes = tk.Text(self.frame)
+            self.notes.pack(expand=True, fill=tk.BOTH)
 
     def text_input(self, label, width, default):
         inner_frame = tk.Frame(self.frame)
@@ -289,10 +292,15 @@ class RacerDialog:
     def car_status_list(self, status_dict: dict):
         out_dict = status_dict.copy()
 
+        status_frame = tk.Frame(self.frame)
+        status_frame.pack(expand=True, anchor=tk.W)
+
+        left_frame = tk.Frame(status_frame)
+        left_frame.pack(expand=True, side=tk.LEFT)
         for key in status_dict.keys():
             if key == 'questions' or key == 'notes':
                 continue
-            frame = tk.Frame(self.frame)
+            frame = tk.Frame(left_frame)
             frame.pack(expand=True, anchor=tk.W)
             out_dict[key] = tk.IntVar(frame, value=status_dict[key][0])
             text = ' '.join(key.split('_'))
@@ -305,8 +313,28 @@ class RacerDialog:
             check_button.pack(padx=2, anchor=tk.W, side=tk.LEFT)
             label = tk.Label(frame, text=status_dict[key][1])
             label.pack(side=tk.LEFT)
-        for key in status_dict['questions'].keys():
-            frame = tk.Frame(self.frame)
+
+        key_list = [x for x in status_dict['questions'].keys()]
+        idx = len(key_list)//2
+        center_frame = tk.Frame(status_frame)
+        center_frame.pack(expand=True, side=tk.LEFT)
+        for key in key_list[:idx]:
+            frame = tk.Frame(center_frame)
+            frame.pack(expand=True, anchor=tk.W)
+            out_dict[key] = tk.IntVar(frame, value=status_dict['questions'][key])
+            text = ' '.join(key.split('_'))
+            gap = tk.Label(frame, width=9)
+            gap.pack(side=tk.LEFT, expand=False)
+            check_button = tk.Checkbutton(frame,
+                                          text=text,
+                                          variable=out_dict[key]
+                                          )
+            check_button.pack(padx=2, anchor=tk.W, side=tk.LEFT)
+
+        right_frame = tk.Frame(status_frame)
+        right_frame.pack(expand=True, side=tk.LEFT)
+        for key in key_list[idx:]:
+            frame = tk.Frame(right_frame)
             frame.pack(expand=True, anchor=tk.W)
             out_dict[key] = tk.IntVar(frame, value=status_dict['questions'][key])
             text = ' '.join(key.split('_'))

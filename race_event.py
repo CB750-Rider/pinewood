@@ -487,7 +487,7 @@ class Event:
             try:
                 self.race_log_file = open(log_file, "a+")
             except OSError:
-                print("Unable to open {} for writing.")
+                print(f"Unable to open {log_file} for writing.")
                 pass
         else:
             print("Logging disabled")
@@ -506,7 +506,7 @@ class Event:
         try:
             f = open(file_name)
         except FileNotFoundError:
-            print("Unable to open {} for reading.")
+            print(f"Unable to open {file_name} for reading.")
             return
 
         if '.yaml' in file_name:
