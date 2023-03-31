@@ -37,6 +37,10 @@ parser.add_argument('--save_action',
                     help="Define what to do when we close. Options are ask, overwrite, new_file, and no_save.",
                     default='None')
 
+parser.add_argument('--color', help="String to set the background color. "
+                                    "Accepts words or hex. ex: 'blue', 'yellow', '#9fff91', '#919aff'",
+                    default='None')
+
 
 def new_fname(old_name):
     now = datetime.datetime.now()
@@ -93,6 +97,9 @@ class RegistrationWindow:
     def create_menubar(self, top):
         menubar = tk.Menu(top)
         filemenu = tk.Menu(menubar, tearoff=0)
+        if cli_args.color is not None:
+            menubar.configure(background=cli_args.color)
+            filemenu.configure(background=cli_args.color)
         filemenu.add_command(label="Open", command=self.open_event)
         filemenu.add_command(label="Save", command=self.save)
         filemenu.add_command(label="Save As", command=self.save_as)
@@ -315,7 +322,7 @@ class RacerDialog:
             label.pack(side=tk.LEFT)
 
         key_list = [x for x in status_dict['questions'].keys()]
-        idx = len(key_list)//2
+        idx = len(key_list) // 2
         center_frame = tk.Frame(status_frame)
         center_frame.pack(expand=True, side=tk.LEFT)
         for key in key_list[:idx]:
@@ -635,6 +642,7 @@ class HeatList:
 
 
 class RaceList:
+
     def __init__(self,
                  parent: RegistrationWindow):
         top = parent.top
@@ -753,7 +761,7 @@ class SaveWindow:
 
 
 if __name__ == "__main__":
-    #post_placements = True
+    # post_placements = True
     cli_args = parser.parse_args()
 
     main_window = RegistrationWindow(tk.Tk(),
