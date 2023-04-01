@@ -97,9 +97,12 @@ class RegistrationWindow:
     def create_menubar(self, top):
         menubar = tk.Menu(top)
         filemenu = tk.Menu(menubar, tearoff=0)
-        if cli_args.color is not None:
-            menubar.configure(background=cli_args.color)
-            filemenu.configure(background=cli_args.color)
+        try: 
+            if cli_args.color is not None:
+                menubar.configure(background=cli_args.color)
+                filemenu.configure(background=cli_args.color)
+        except NameError:
+            pass
         filemenu.add_command(label="Open", command=self.open_event)
         filemenu.add_command(label="Save", command=self.save)
         filemenu.add_command(label="Save As", command=self.save_as)

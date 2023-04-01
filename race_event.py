@@ -1011,9 +1011,14 @@ def create_heat_from_line(line):
 
 
 def create_racer_from_dict(rcr_dict, heat_name):
+    try:
+        car_num = rcr_dict['car_number']
+    except KeyError:
+        car_num = next_car_number() 
     out = Racer(name=rcr_dict['name'],
                 rank=rcr_dict['rank'],
-                car_number=next_car_number(),
+                car_number=car_num,
+                car_name=rcr_dict['car_name'],
                 heat_name=heat_name)
     if 'car_status' in rcr_dict.keys():
         car_status = rcr_dict['car_status']
@@ -1040,7 +1045,10 @@ def create_heat_from_dict(heat):
 
 def create_race_from_line(line, all_heats):
     entries = line.split(',')
-    race_num = int(entries[0].split(' ')[-1])
+    try:
+        race_num = int(entries[0].split(' ')[-1])
+    except:
+        race_num = 0
     heats = []
     racers = []
     is_empty = [False, False, False, False]
