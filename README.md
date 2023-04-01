@@ -37,9 +37,4 @@ The Registration code should be run in the days (maybe even hours) leading up to
 
 This is a convenience application for developers. It simulates the timers so that the Race Manager application can run and be tested. The simulation should be called before running the Race Manager. 
 
-5. Add the ability to add championship heats.
-6. Add a web interface for scout families to see their progress.
-7. Convert the applications to a web interface.
-
-
 
