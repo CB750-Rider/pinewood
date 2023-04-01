@@ -38,7 +38,7 @@ class TimerComs:
                  addresses: List[str] = None,
                  hosts_file: str = None,
                  n_lanes: int = 4,
-                 reset_lane: int = 3):
+                 reset_lane: int = 0):
         if addresses is None and hosts_file is None:
             raise ValueError("You must provide a list of hosts, or a hosts file when creating sockets.")
 
