@@ -263,10 +263,16 @@ class RacerDialog:
                                                    heat_options)
             self.heat_selector.pack(side=tk.RIGHT)
 
-            clear = tk.Button(option_frame, text="Clear Inspection", command=self.clear_inspection)
+            clear = tk.Button(option_frame, text="Clear Inspection",
+                              command=self.clear_inspection)
             clear.pack(side=tk.RIGHT)
 
-            cancel = tk.Button(bottom_frame, text="Cancel", command=self._window.destroy)
+            set = tk.Button(option_frame, text="Pass All",
+                            command=self.pass_all_inspections)
+            set.pack(side=tk.RIGHT)
+
+            cancel = tk.Button(bottom_frame, text="Cancel",
+                               command=self._window.destroy)
             cancel.pack(side=tk.RIGHT)
 
             self.car_status = self.car_status_list(racer.car_status)
@@ -359,6 +365,12 @@ class RacerDialog:
             if key == 'questions' or key == 'notes':
                 continue
             self.car_status[key].set(0)
+
+    def pass_all_inspections(self):
+        for key in self.car_status.keys():
+            if key == 'questions' or key == 'notes':
+                continue
+            self.car_status[key].set(1)
 
     def accept(self):
         self.racer.name = self.name_field.get()
@@ -781,3 +793,5 @@ if __name__ == "__main__":
 
     if out_fname is not None:
         event.print_plan_yaml(out_fname, revised_plan=plan)
+
+

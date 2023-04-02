@@ -41,12 +41,7 @@ parser.add_argument('--event_file', help='A file with the event plan listed.',
 parser.add_argument('--log_file', help='The name of a file to save race times to.',
                     default='log_file.yaml')
 
-# host = ['', '', '', '']
-# port = [0, 0, 0, 0]
-# stringlen = 64
-# race_time_displays = [[], [], [], []]  # race time displays
-# placement_displays = [[], [], [], []]  # placement displays
-placements = [-1, -1, -1, -1]
+#placements = [-1, -1, -1, -1]
 race_count = [0, 0, 0, 0]
 status_indicators = [[], [], [], []]
 # dimensions are y = row x = column rid[y][x]
@@ -56,8 +51,6 @@ widths = {"Times Column": 430,
 race_ready = [False, False, False, False]  # "Yellow LED"
 race_complete = [True, True, True, True]  # "Red LED"
 race_running = [False, False, False, False]  # "Green LED"
-reset_msg = "<reset>\n".encode('utf-8')
-s_conn = [False, False, False, False]  # Socket connection flags
 small_font = ("Serif", 16)
 med_font = ("Times", 21)
 large_font = ("Times", 25)
@@ -146,7 +139,7 @@ class RaceSelector:
         rt.pack(fill=tk.X)
 
     def str(self, ri, rln):
-        return "{}:{}".format(ri+1, rln)
+        return "{}:{}".format(ri + 1, rln)
 
     def update(self,
                show_accepted_race=True,
@@ -373,11 +366,22 @@ class RaceTimes:
 
         rt = tk.Frame(top)
         self.frame = rt
-        w = tk.Label(rt, text="Lane {0}".format(idx + 1),
+        lane_label_box = tk.Frame(rt, bg=colors[idx])
+        w = tk.Label(lane_label_box, text="Lane {0}".format(idx + 1),
                      bg=colors[idx], font=large_font)
-        w.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        w.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        self.sckt_conn_text = tk.StringVar()
+        self.sckt_conn_text.set("Not Connected")
+        self.sckt_curr_conn_status = False
+        self.sckt_conn_status_label = tk.Label(lane_label_box,
+                                               textvariable=self.sckt_conn_text,
+                                               bg='black', fg='red',
+                                               font=med_font)
+        lane_label_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        self.sckt_conn_status_label.pack(side=tk.BOTTOM)
         self.status_indicator = TrackStatusIndicator(rt, colors[idx], idx, self)
         self.status_indicator.frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        self.placement = -1
         res_frm = tk.Frame(rt)
         if parent.event.current_race.times:  # If times were posted
             current_race = parent.event.current_race
@@ -416,11 +420,11 @@ class RaceTimes:
             return False
 
     def update_placement_display(self):
-        global placement_displays, placements
+        global placement_displays
         race_idx = rm_gui.times_column.race_selector.get_race_idx_from_selector()
-        if placements[self.idx] >= 0:
+        if self.placement >= 0:
             self.placement_display.config({"bg": self.colors[self.idx]})
-            self.placement_display.config(self.placement_settings[placements[self.idx]])
+            self.placement_display.config(self.placement_settings[self.placement])
         else:
             self.placement_display.config({"bg": self.colors[self.idx]})
             self.placement_display.config(self.placement_default)
@@ -429,6 +433,22 @@ class RaceTimes:
         global placement_displays
         self.placement_display.config({"bg": self.colors[self.idx]})
         self.placement_display.config(self.placement_default)
+
+    def update_socket_status(self, is_connected: bool):
+        if is_connected:
+            if self.sckt_curr_conn_status:
+                return
+            else:
+                self.sckt_conn_text.set("Connected")
+                self.sckt_conn_status_label.configure(
+                    fg='black', bg=self.colors[self.idx])
+        else:
+            if self.sckt_curr_conn_status:
+                self.sckt_conn_text.set("Not Connected")
+                self.sckt_conn_status_label.configure(
+                    fg='red', bg='black'
+                )
+        self.sckt_curr_conn_status = is_connected
 
 
 class TimesColumn:
@@ -510,9 +530,9 @@ class RaceColumn:
             rid.config(**chips[idx])
         if race_number > self.parent.event.last_race:
             self.column_label.config(text="#--")
-            #race_number = self.parent.event.last_race
+            # race_number = self.parent.event.last_race
         else:
-            self.column_label.config(text="#{}".format(race_number+1))
+            self.column_label.config(text="#{}".format(race_number + 1))
 
 
 class ControlsRow:
@@ -675,7 +695,7 @@ class RaceManagerGUI:
 
     def update_race_selector(self,
                              show_accepted_race=True,
-                             race_idx=-2, race_log_idx=-1,):
+                             race_idx=-2, race_log_idx=-1, ):
         if race_idx == -1:
             race_idx = self.event.current_race_idx
         if race_log_idx == -1:
@@ -684,6 +704,12 @@ class RaceManagerGUI:
             show_accepted_race=show_accepted_race,
             race_idx=race_idx, race_log_idx=race_log_idx
         )
+
+    def update_socket_status(self):
+        conn_status = self.timer_coms.check_connections()
+        for i in range(self.n_lanes):
+            self.times_column.race_times[i].update_socket_status(
+                conn_status[i])
 
     def set_active_race_log_idx(self, idx):
         global block_loading_previous_times
@@ -805,7 +831,6 @@ class RaceManagerGUI:
 class RaceManager:
     event: Event = None
     rm_gui: RaceManagerGUI = None
-    coms: TimerComs = None
     race_needs_written = False
     req_win: tk.Toplevel = None
 
@@ -823,7 +848,7 @@ class RaceManager:
             parent=self
         )
 
-        self.rm_gui.timer_coms.connect_to_track_hosts(autoclose=True)
+        #self.rm_gui.timer_coms.connect_to_track_hosts(autoclose=True)
 
     def request_to_post_results(self):
         req_win = tk.Toplevel()
@@ -936,7 +961,7 @@ def find_race_count(data):
 
 
 def show_results():
-    global race_count, placements, rm_gui
+    global race_count, rm_gui
     race_idx = rm_gui.times_column.race_selector.get_race_idx_from_selector()
     updated_counts = rm_gui.event.get_counts_for_race(race_idx)
     for li in range(rm_gui.n_lanes):
@@ -944,17 +969,19 @@ def show_results():
 
     # Find which lanes were 1st, 2nd, 3rd, and 4th
     ranks = np.argsort(race_count)
+    race_times = rm_gui.times_column.race_times
     place = 0
+
     # TODO We need to handle ties.
-    for i in range(rm_gui.event.n_lanes):
-        if race_count[ranks[i]] <= 0:
-            placements[ranks[i]] = -1
-        elif rm_gui.event.current_race.is_empty[ranks[i]]:
-            placements[ranks[i]] = -1
-        elif race_count[ranks[i]] == 0:
-            placements[ranks[i]] = -1
+    for rank in ranks:
+        if race_count[rank] <= 0:
+            race_times[rank].placement = -1
+        elif rm_gui.event.current_race.is_empty[rank]:
+            race_times[rank].placement = -1
+        elif race_count[rank] == 0:
+            race_times[rank].placement = -1
         else:
-            placements[ranks[i]] = place
+            race_times[rank].placement = place
             place += 1
     rm_gui.update_race_display(new_race=False)
 
@@ -1026,6 +1053,7 @@ if __name__ == "__main__":
 
     while program_running:
         "Waiting for data from track hosts."
+        rm_gui.update_socket_status()
         ready_sockets, open_sockets, error_sockets = timer_coms.select(0.05)
         open_conn = [4]
         if len(open_sockets) != 4:
@@ -1033,7 +1061,8 @@ if __name__ == "__main__":
             open_conn = timer_coms.sockets_are_in_list(open_sockets)
             rm_gui.update_race_display(new_race=False)
             tk.messagebox.showinfo("Connection Dropped", "A socket connection appears to have failed.")
-            timer_coms.connect_to_track_hosts(autoclose=True, reset=True)
+            #timer_coms.close()
+            #timer_coms.connect_to_track_hosts(autoclose=True, reset=True)
         for ready_socket in ready_sockets:
             try:
                 s_idx = timer_coms.socket_index(ready_socket)
@@ -1052,7 +1081,7 @@ if __name__ == "__main__":
                 race_running[s_idx] = False
                 race_complete[s_idx] = (False or
                                         rm_gui.event.current_race.is_empty[s_idx])
-                placements[s_idx] = -1
+                rm_gui.times_column.race_times[s_idx].placement = -1
                 race_count[s_idx] = 0
                 post_placements = True
             elif 'GO!'.encode('utf-8') in data:
@@ -1081,7 +1110,8 @@ if __name__ == "__main__":
             else:
                 if len(data) == 0:  # indicative of socket failure
                     tk.messagebox.showinfo("Connection Dropped", "A socket connection appears to have failed.")
-                    timer_coms.connect_to_track_hosts(autoclose=True, reset=True)
+                    timer_coms.reset_socket(ready_socket)
+                    #timer_coms.connect_to_track_hosts(autoclose=True, reset=True)
                 else:
                     print(data)
 

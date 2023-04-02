@@ -149,7 +149,7 @@ class Racer:
             self.rank = dict['rank']
         if 'car_number' in dict.keys():
             self.car_number = dict['car_number']
-        if 'can_name' in dict.keys():
+        if 'car_name' in dict.keys():
             self.car_name = dict['car_name']
         if 'race_times' in dict.keys():
             self.race_times = dict['race_times']
@@ -502,6 +502,7 @@ class Event:
                     racers=racers,
                     ability_rank=ability_rank)
 
+
     def load_races_from_file(self, file_name):
         try:
             f = open(file_name)
@@ -510,26 +511,16 @@ class Event:
             return
 
         if '.yaml' in file_name:
-            self.load_races_from_yaml(file_name)
-
-        with open(file_name) as infile:
-            for line in infile:
-                if 'Heat' in line:
-                    self.add_heat(create_heat_from_line(line))
-            if self.verbose:
-                self.print_heats()
-            infile.seek(0, 0)
-            for line in infile:
-                if 'Race' in line:
-                    self.races.append(
-                        create_race_from_line(line, self.heats))
+            self._load_races_from_yaml(file_name)
+        else:  # Legacy Reader
+            self._load_races_from_yaml(file_name)
         try:
             self.current_race = self.races[0]
         except IndexError:
             self.current_race = None
         self.last_race = len(self.races) - 1
 
-    def load_races_from_yaml(self, file_name):
+    def _load_races_from_yaml(self, file_name):
         with open(file_name, 'r') as infile:
             self.plan_dictionary = yaml.safe_load(infile)
         for heat in self.plan_dictionary['heats']:
@@ -539,6 +530,25 @@ class Event:
         if 'races' in self.plan_dictionary.keys():
             for race in self.plan_dictionary['races']:
                 self.races.append(create_race_from_dict(race, self.heats))
+
+    def _leagacy_loader(self, file_name):
+        with open(file_name) as infile:
+            for line in infile:
+                if 'Heat' in line:
+                    try:
+                        self.add_heat(create_heat_from_line(line))
+                    except:  # May happen if "Heat" is in a line like "car name"
+                        pass
+            if self.verbose:
+                self.print_heats()
+            infile.seek(0, 0)
+            for line in infile:
+                if 'Race' in line:
+                    try:
+                        self.races.append(
+                            create_race_from_line(line, self.heats))
+                    except: # Sometimes car names have "Race" in them and this will fail
+                        pass
 
     def print_heats(self):
         print("The race heats are as follows.")
@@ -1011,9 +1021,14 @@ def create_heat_from_line(line):
 
 
 def create_racer_from_dict(rcr_dict, heat_name):
+    try:
+        car_num = rcr_dict['car_number']
+    except KeyError:
+        car_num = next_car_number()
     out = Racer(name=rcr_dict['name'],
                 rank=rcr_dict['rank'],
-                car_number=next_car_number(),
+                car_number=car_num,
+                car_name=rcr_dict['car_name'],
                 heat_name=heat_name)
     if 'car_status' in rcr_dict.keys():
         car_status = rcr_dict['car_status']

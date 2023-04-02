@@ -67,13 +67,20 @@ class Lane:
 
     def drop_connection(self):
         if self.drop_button['text'] == 'Drop':
+            self.shutdown_connection()
+            self.connection.close()
             try:
                 self._socket.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
             self._socket.close()
             self.drop_button['text'] = 'Connect'
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.connection = None
+            self.address = None
+            self.queue = Queue(maxsize=2)
         else:
+            self.drop_button['text'] = 'Drop'
             self.start_socket()
 
     def start_socket(self):
@@ -256,7 +263,10 @@ if __name__ == "__main__":
         if conn is not None:
             window.activate_reset_button()
             if not race_ready:
-                ready_sockets, writy_sockets, _ = select.select(conn, conn, [], 5.0)
+                try:
+                    ready_sockets, writy_sockets, _ = select.select(conn, conn, [], 5.0)
+                except ValueError:
+                    print("Do something.")
                 for rs in ready_sockets:
                     data = rs.recv(64).decode('utf-8')
                     if 'reset' in data:

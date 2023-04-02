@@ -88,17 +88,27 @@ class TimerComs:
         self.ports[idx] = int(port)
         self.hosts[idx] = ip
 
-    def reset_sockets(self):
-        for i, sckt in enumerate(self.sockets):
-            if self.is_conn[i]:
-                self.is_conn[i] = False
-                try:
-                    sckt.shutdown(socket.SHUT_RDWR)
-                except OSError:
-                    pass
-                sckt.close()
-        self.sockets = [socket.socket(socket.AF_INET, socket.SOCK_STREAM) for _ in range(4)]
+    def reset_socket(self, sock: socket.socket):
+        """Closes and resets the socket matching sock  """
+        for i, sock2 in enumerate(self.sockets):
+            if sock is sock2:
+                break
+
+        if self.is_conn[i]:
+            self.is_conn[i] = False
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        sock.close()
+
         self.all_connected = False
+        self.sockets[i] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    def reset_sockets(self):
+        "Closes and resets all sockets "
+        for sckt in self.sockets:
+            self.reset_socket(sckt)
 
     def close_conn_window(self):
         self.connection_window_open=False
@@ -125,6 +135,7 @@ class TimerComs:
             rb[i] = tk.Entry(popup, textvariable=port_text[i])
             rb[i].pack()
         reset_button = tk.Button(popup, text="Reset", command=self.reset_sockets).pack()
+        exit_button = tk.Button(popup, text="Exit", command=self.close_conn_window).pack()
         last_time = time.clock_gettime(time.CLOCK_MONOTONIC) - 10.0
         loop_count = 5
 
@@ -147,10 +158,10 @@ class TimerComs:
                 popup.update()
                 time.sleep(0.01)
                 continue
-            elif loop_count < 5:
+            elif loop_count < 1:
                 loop_count += 1
                 last_time = time.clock_gettime(time.CLOCK_MONOTONIC)
-                db.config(text=f"Re-attempting in {5-loop_count} seconds.")
+                db.config(text=f"Re-attempting in {1-loop_count} second.")
                 popup.update_idletasks()
                 popup.update()
                 time.sleep(0.01)
@@ -176,7 +187,7 @@ class TimerComs:
                     self.ports[i] = int(port_text[i].get().split(':')[-1])
                 except ValueError:
                     pass
-            for i in range(4):
+            for i in range(self.n_lanes):
                 if not self.is_conn[i]:
                     rb[i].config(**{'fg': '#000000', 'bg': '#ffffff'})
                     db.config(text="Attempting to connect to {}:{}".format(
@@ -185,6 +196,7 @@ class TimerComs:
                     print("Attempting to connect to {}:{}".format(
                         self.hosts[i], self.ports[i]))
                     try:
+                        self.sockets[i].setblocking(False)
                         self.sockets[i].connect((self.hosts[i], self.ports[i]))
                     except InterruptedError:
                         continue
@@ -199,8 +211,8 @@ class TimerComs:
                         rb[i].config(**{'fg': '#18ff00', 'bg': '#404040'})
                         time.sleep(0.1)
             if not all(self.is_conn):
-                print("Waiting 5 seconds and re-attempting connection.")
-                db.config(text="""Waiting 5 seconds and re-attempting connection.""")
+                print("Waiting 1 second and re-attempting connection.")
+                db.config(text="""Waiting 1 second1 and re-attempting connection.""")
                 last_time = time.clock_gettime(time.CLOCK_MONOTONIC)
             else:
                 self.all_connected = True
@@ -209,6 +221,20 @@ class TimerComs:
             popup.update_idletasks()
             popup.update()
         popup.destroy()
+
+    def check_connections(self):
+        for i in range(self.n_lanes):
+            if not self.is_conn[i]:
+                try:
+                    self.sockets[i].setblocking(False)
+                    self.sockets[i].connect((self.hosts[i], self.ports[i]))
+                except:
+                    continue
+                else:
+                    self.is_conn[i] = True
+                    print("Connection from {}:{} established.".format(
+                        self.hosts[i], self.ports[i]))
+        return self.is_conn
 
     def send_reset_to_track(self, accept=False):
         print("Sending Reset to the Track")
