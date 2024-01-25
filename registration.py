@@ -273,7 +273,6 @@ class RacerDialog:
             set = tk.Button(option_frame, text="Pass All",
                             command=self.pass_all_inspections)
             set.pack(side=tk.RIGHT)
-
             cancel = tk.Button(bottom_frame, text="Cancel",
                                command=self._window.destroy)
             cancel.pack(side=tk.RIGHT)
@@ -560,6 +559,9 @@ class RacerList:
                         self.parent.racer_list.set_racers_from_heat(heat_idx_a)
                         if self.parent.autogenerate_race_plan.get():
                             self.parent.race_list.load_race_plan()
+
+        # Reload Everything
+        print("pause.")
 
     def edit_selected_racer(self):
         idx = self.get_selected_racer_index()

@@ -806,7 +806,11 @@ class Event:
             return [Racer(0, "Empty", "Empty", "Empty").chip() for _ in range(self.n_lanes)]
         race = self.races[race_number]
         for i in range(self.n_lanes):
-            chips.append(race.racers[i].chip())
+            try:
+                chips.append(race.racers[i].chip())
+            except IndexError:
+                print("There was an error loading the races. If possible, close this application, go into the race_plan yaml file and delete the entire 'races' section then re-run the application.")
+                raise
         return chips
 
     def goto_next_race(self):

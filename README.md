@@ -7,6 +7,26 @@ This repository holds some tools I wrote to run a pinewood derby. The software h
 
 The library requires [tksheet](https://github.com/ragardner/tksheet).
 
+## Running The Code
+
+To run the program call:
+
+``` bash
+$ python race_manager.py
+```
+
+To see the options run:
+
+``` bash
+$ python race_manager.py --help
+```
+
+The program makes use of two configuration files. The hosts_file and the event_file. 
+
+The hosts_file lists the IP addresses and ports that the timers are set up to use. The included "lane_hosts_LOCAL.csv" hosts_file uses the localhost interface and may be used in conjunction with `timer_sim.py` for debugging purposes. The `timer_sim.py` application creates four virtual timers that send signals like the real timers should send.
+
+The event_file is a yaml file that has all of the entrants' names, heats, and the race plan. Sometimes errors crop up when loading the race plan. If you delete the entire 'races' section from the yaml file, it often fixes the issue.
+
 ## Derby TTL Timers
 
 The [device code](NodeMCU_Code/DerbyTimerNodeMCU/DerbyTimerNodeMCU.ino) is written for the [NodeMcu](https://www.nodemcu.com/index_en.html) development kit which is interfaced to a set of custom-built timers. If you are interested in the timer hardware, let me know via E-mail. The timers are Transistor-Transistor Logic (TTL) systems that use optical triggers to clock when the race starts and when cars pass the finish line. The TTL systems block/unblock a clock signal from getting to a counter/recorder. For our system, the NodeMcu works as the counter/recorder and sends the results via WiFi to another computer. There is one NodeMcu, and one end trigger per lane on the Pinewood track. The timers can be set up to use one start trigger signal per lane, or to share a single start trigger signal.

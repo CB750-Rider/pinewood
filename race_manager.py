@@ -41,9 +41,7 @@ parser.add_argument('--event_file', help='A file with the event plan listed.',
 parser.add_argument('--log_file', help='The name of a file to save race times to.',
                     default='log_file.yaml')
 
-#placements = [-1, -1, -1, -1]
 race_count = [0, 0, 0, 0]
-status_indicators = [[], [], [], []]
 # dimensions are y = row x = column rid[y][x]
 widths = {"Times Column": 430,
           "Race Column": 350,
