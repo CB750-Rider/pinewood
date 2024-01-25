@@ -57,15 +57,4 @@ The Registration code should be run in the days (maybe even hours) leading up to
 
 This is a convenience application for developers. It simulates the timers so that the Race Manager application can run and be tested. The simulation should be called before running the Race Manager. 
 
-## TODO List
-
-1. Convert the race log to yaml. <- Skipping for now. I don't see a huge benefit
-2. Improve this README.
-3. Auto-assign car numbers.
-4. Create a tool to print the race plan & current stats.
-5. Add the ability to add championship heats.
-6. Add a web interface for scout families to see their progress.
-7. Convert the applications to a web interface.
-8. Refactor the messy Race Manager GUI code to better use classes. This is partially completed but more work needs done here. 
-
 
