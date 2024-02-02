@@ -12,13 +12,13 @@ The library requires [tksheet](https://github.com/ragardner/tksheet).
 To run the program call:
 
 ``` bash
-$ python race_manager.py
+$ python RM_GUI.py
 ```
 
 To see the options run:
 
 ``` bash
-$ python race_manager.py --help
+$ python RM_GUI.py --help
 ```
 
 The program makes use of two configuration files. The hosts_file and the event_file. 
