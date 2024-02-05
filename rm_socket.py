@@ -26,6 +26,7 @@ import time
 import select
 from multiprocessing import Queue, Process, Pipe
 from pip._vendor.requests.utils import _null
+from pickle import TRUE, FALSE
 
 message_color = "\033[94m"
 normal_color = "\033[0m"
@@ -166,7 +167,7 @@ class _TimerSocket:
             return True
         except Exception as e:
             self._vprint(f"!!Error found with socket {self.index}!!")
-            raise e
+        return False
 
     def connect(self):
         self.socket.connect((self.address, self.port))
@@ -262,7 +263,6 @@ class TimerConnection:
             self.connected = self._await_conf()
         return self.connected
 
-
     def reset_socket(self):
         self.pipe.send(_socket_reset_msg)
 
@@ -271,6 +271,21 @@ class TimerConnection:
 
     def send_stop(self):
         self.pipe.send(_stop_counting)
+        
+    def new_connection(self, address, port):
+        self.shutdown()
+        self.pipe.close()
+        
+        self.address = address
+        self.port = port
+        
+        self.pipe, child_pipe = Pipe(duplex=True)
+        self.p = Process(target=_create_connection,
+                         args=(address, port, child_pipe,
+                               self.queue, self.verbose, self.index))
+        self.p.start()
+        self.connected = self.is_connected(quick=False)
+        
 
 class TimerComs:
 
@@ -285,6 +300,7 @@ class TimerComs:
             raise ValueError("You must provide a list of hosts, or a hosts file when creating sockets.")
 
         self.q = Queue()
+        self.socket_frame = None
         self.n_lanes = n_lanes
         self.hosts = [str(x) for x in range(n_lanes)]
         self.ports = [int(x) for x in range(n_lanes)]
@@ -309,6 +325,13 @@ class TimerComs:
         if self.verbose:
             print(f"{message_color}rm_socket.TimerComs: {msg} {normal_color}")
 
+    def set_socket_frame(self, frame):
+        self.socket_frame = frame
+        
+    def window_update(self):
+        if self.connection_window_open:
+            self.connect_to_track_hosts()
+            
     def shutdown(self):
         for i in range(self.n_lanes):
             try:
@@ -368,107 +391,165 @@ class TimerComs:
     def close_conn_window(self):
         self.connection_window_open = False
 
+    def run(self):
+        self.connection_window_open = TRUE
+        self.connect_to_track_hosts()
+        
+    def stop(self):
+        self.connection_window_open = False 
+        
     def connect_to_track_hosts(self, autoclose=False, reset=False):
         self.connection_window_open = True
 
         if reset:
             self.reset_sockets()
 
-        rb = self.entry_widgets
-        port_text = [[]] * self.n_lanes
-
-        popup = tk.Toplevel(self.parent)
-        popup.wm_title("Connection To Track")
-        popup.protocol("WM_DELETE_WINDOW", self.close_conn_window)
-        db = tk.Label(popup, width=45)
-        db.pack()
-        for i in range(self.n_lanes):
-            port_text[i] = tk.StringVar()
-            port_text[i].set(f"{self.hosts[i]}:{self.ports[i]}")
-            rb[i] = tk.Entry(popup, textvariable=port_text[i])
-            rb[i].pack()
-
-        tk.Button(popup, text="Reset", command=self.reset_sockets).pack()
-        tk.Button(popup, text="Exit", command=self.close_conn_window).pack()
-        last_time = time.clock_gettime(time.CLOCK_MONOTONIC) - 10.0
-        loop_count = 5
-
-        popup.lift()
-
-        if self.all_connected():
-            for i in range(self.n_lanes):
-                rb[i].config(**{'fg': '#18ff00', 'bg': '#404040'})
-
         while self.connection_window_open:
-            if self.all_connected():
-                db.config(text="Connected. Press Reset to drop and reconnect.")
-                popup.update_idletasks()
-                popup.update()
-                time.sleep(0.05)
-                continue
-            time_diff = time.clock_gettime(time.CLOCK_MONOTONIC) - last_time
-            if time_diff < 1.0:
-                popup.update_idletasks()
-                popup.update()
-                time.sleep(0.01)
-                continue
-            elif loop_count < 1:
-                loop_count += 1
-                last_time = time.clock_gettime(time.CLOCK_MONOTONIC)
-                db.config(text=f"Re-attempting in {1 - loop_count} second.")
-                popup.update_idletasks()
-                popup.update()
-                time.sleep(0.01)
-                continue
-            else:
-                loop_count = 0
+            self.timer_window.update()
+        
+        if self.socket_frame is None:    
+            popup.destroy()
+            
+        
 
-            has_focus = self.parent.focus_get()
-            i = 0
-            while i < self.n_lanes:
-                while self.entry_widgets[i] == has_focus:
-                    db.config(text=f"Re-attempting connection after editing.")
-                    i = -1
-                    time.sleep(0.05)
-                    popup.update_idletasks()
-                    popup.update()
-                    has_focus = self.parent.focus_get()
-                i += 1
-            self.parent.focus_set()
-            for i in range(self.n_lanes):
-                self.hosts[i] = port_text[i].get().split(':')[0]
-                try:
-                    self.ports[i] = int(port_text[i].get().split(':')[-1])
-                except ValueError:
-                    pass
-            for i in range(self.n_lanes):
-                if not self.comms[i].is_connected():
-                    rb[i].config(**{'fg': '#000000', 'bg': '#ffffff'})
-                    db.config(text="Attempting to connect to {}:{}".format(
-                        self.hosts[i], self.ports[i]))
-                    popup.update()
-                    self._vprint("Attempting to connect to {}:{}".format(
-                        self.hosts[i], self.ports[i]))
-                    try:
-                        self.comms[i].connect()
-                    except Exception as e:
-                        rb[i].config(**{'fg': '#ff0000', 'bg': '#ffffff'})
-                    else:
-                        self._vprint("Connection from {}:{} established.".format(
-                            self.hosts[i], self.ports[i]))
-                        rb[i].config(**{'fg': '#18ff00', 'bg': '#404040'})
-                        time.sleep(0.1)
-            if not self.all_connected():
-                self._vprint("Waiting 1 second and re-attempting connection.")
-                db.config(text="""Waiting 1 second1 and re-attempting connection.""")
-                last_time = time.clock_gettime(time.CLOCK_MONOTONIC)
-            else:
-                if autoclose:
-                    self.connection_window_open = False
-            popup.update_idletasks()
-            popup.update()
-        popup.destroy()
+
 
     def send_reset_to_track(self, accept=False):
         self._vprint("Sending Reset to the Track")
         self.comms[self.reset_lane].send_reset()
+
+class _TimerFrame:
+    
+    def __init__(self,
+                 outer_frame: tk.Frame,
+                 timer: TimerConnection,
+                 host: str,
+                 port: int):
+        
+        self.outer_frame = outer_frame
+        self.frame = tk.Frame(outer_frame)
+        self.frame.pack(fill=tk.BOTH, expand=1)
+        
+        self.timer = timer
+        self.host = host
+        self.port = port
+        
+        self.port_text = tk.StringVar()
+        self.port_text.set(f"{host}:{port}")
+        
+        self.rb = tk.Entry(self.frame, textvariable=self.port_text)
+        self.rb.pack()
+        
+        tk.Button(self.frame, text="Connect", command=self.update_connection)
+        tk.Button(self.frame, text="Reset Connection", command=self.timer.reset_socket).pack()
+        tk.Button(self.frame, text="Reset Timer", command=self.timer.send_reset).pack()
+        tk.Button(self.frame, text="Stop Timer", command=self.timer.send_stop).pack()
+    
+    def check_status(self):
+        if self.timer.is_connected(quick=True):
+            
+    def update_connection(self):
+        txt = self.port_text.get()
+        self.host = txt.split(':')[0]
+        self.port = int(txt.split(':')[-1])
+        self.timer.new_connection(self.host, self.port)
+            
+class _MainWindow:
+    
+    def __init__(self, outer_frame):
+        self.outer_frame = outer_frame
+        self.active = False 
+        
+    def run(self):
+        self.active = True 
+        
+    def stop(self):
+        self.active = False 
+        
+    def update(self):
+        if self.active:
+            self._update()
+            
+    def _update(self):        
+        raise NotImplementedError("""Each derived class must describe what
+        to do when updating.""")
+        
+        
+class TimerWindow(_MainWindow):
+    
+    def __init__(self,
+                 outer_frame: tk.Frame,
+                 timer_coms: TimerComs,
+                 ):
+        
+        super().__init__(outer_frame)
+        
+        self.outer_frame = outer_frame
+        self.timer_coms = timer_coms
+        
+        if timer_coms.socket_frame is None:
+            popup = tk.Toplevel(self.parent)
+            popup.wm_title("Connection To Track")
+            popup.protocol("WM_DELETE_WINDOW", self.close_conn_window)
+        else:
+            popup = timer_coms.socket_frame
+
+        self.timer_frame = []            
+        self.db = tk.Label(popup, width=45)
+        self.db.pack()
+        
+        for i in range(timer_coms.n_lanes):
+            self.timer_frame.append(_TimerFrame(popup, timer_coms.comms[i],
+                                                timer_coms.hosts[i],
+                                                timer_coms.ports[i]))
+
+            
+        tk.Button(popup, text="Reset All", command=timer_coms.reset_sockets).pack()
+        tk.Button(popup, text="Exit", command=timer_coms.close_conn_window).pack()
+        self.last_time = time.clock_gettime(time.CLOCK_MONOTONIC) - 10.0
+            
+        if timer_coms.all_connected():
+            for i in range(timer_coms.n_lanes):
+                self.timer_frame[i].rb.config(**{'fg': '#18ff00', 'bg': '#404040'})
+                
+    def _update(self):
+        tc = self.timer_coms
+        if tc.all_connected():
+            self.db.config(text="Connected. Press Reset to drop and reconnect.")
+        time_diff = time.clock_gettime(time.CLOCK_MONOTONIC) - self.last_time
+
+        self.parent.focus_set()
+        for i in range(self.n_lanes):
+            self.hosts[i] = port_text[i].get().split(':')[0]
+            try:
+                self.ports[i] = int(port_text[i].get().split(':')[-1])
+            except ValueError:
+                pass
+        for i in range(self.n_lanes):
+            if not self.comms[i].is_connected():
+                rb[i].config(**{'fg': '#000000', 'bg': '#ffffff'})
+                db.config(text="Attempting to connect to {}:{}".format(
+                    self.hosts[i], self.ports[i]))
+                popup.update()
+                self._vprint("Attempting to connect to {}:{}".format(
+                    self.hosts[i], self.ports[i]))
+                try:
+                    self.comms[i].connect()
+                except Exception as e:
+                    rb[i].config(**{'fg': '#ff0000', 'bg': '#ffffff'})
+                else:
+                    self._vprint("Connection from {}:{} established.".format(
+                        self.hosts[i], self.ports[i]))
+                    rb[i].config(**{'fg': '#18ff00', 'bg': '#404040'})
+                    time.sleep(0.1)
+        if not self.all_connected():
+            self._vprint("Waiting 1 second and re-attempting connection.")
+            db.config(text="""Waiting 1 second1 and re-attempting connection.""")
+            last_time = time.clock_gettime(time.CLOCK_MONOTONIC)
+        else:
+            if autoclose:
+                self.connection_window_open = False
+        popup.update_idletasks()
+        popup.update()        
+            
+        

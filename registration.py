@@ -27,6 +27,7 @@ import datetime
 from tkinter import messagebox, filedialog, ttk
 import os
 import tksheet
+from pickle import TRUE
 
 description = "A Graphical Interface for setting up Pinewood Derby Races"
 
@@ -107,7 +108,7 @@ class RegistrationWindow:
         filemenu.add_command(label="Open", command=self.open_event)
         filemenu.add_command(label="Save", command=self.save)
         filemenu.add_command(label="Save As", command=self.save_as)
-        filemenu.add_command(label="Print", command=self.print)
+        filemenu.add_command(label="Print", command=self.print_)
         filemenu.add_separator()
         filemenu.add_command(label="Exit", command=self.on_closing)
 
@@ -127,7 +128,7 @@ class RegistrationWindow:
         self.out_file_name = filedialog.asksaveasfilename()
         self.save()
 
-    def print(self):
+    def print_(self):
         out_file = filedialog.asksaveasfilename(defaultextension='.pdf')
         self.event.print_plan_mc_sheet(out_file)
 
@@ -136,6 +137,9 @@ class RegistrationWindow:
         self.event.print_plan_yaml(self.out_file_name,
                                    revised_plan=self.race_list.sheet_data)
 
+    def run(self):
+        self.running = TRUE
+        
     def check_revised_plan(self):
         problems = []
         for heat in self.event.heats[:-1]:
@@ -172,6 +176,10 @@ class RegistrationWindow:
     def on_closing(self):
         self.running = False
 
+    def window_update(self):
+        if self.running:
+            self.mainloop()
+            
     def mainloop(self):
         self.top.mainloop()
         return self.event, self.out_file_name, self.race_list.sheet_data
@@ -612,7 +620,7 @@ class HeatList:
         button.pack(fill=tk.X, pady=2)
 
         button = tk.Button(self._outer_frame, text="Print", font=('Serif', 18),
-                           command=self.parent.print)
+                           command=self.parent.print_)
         button.pack(fill=tk.X, pady=2)
 
         exit_button = tk.Button(self._outer_frame, text="Exit", font=('Serif', 18),

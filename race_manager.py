@@ -26,7 +26,8 @@ import tkinter as tk
 from tkinter import filedialog, IntVar
 from race_event import Event
 import argparse
-from rm_socket import TimerComs, normal_color
+from rm_socket import TimerComs, normal_color, TimerWindow
+from results import ResultsWindow
 import registration
 from copy import deepcopy
 
@@ -554,6 +555,7 @@ class ControlsRow:
 
 # THE GUI
 
+
 class RaceManagerGUI:
     window_size = "1850x1024"
     lane_colors = ["#1167e8", "#e51b00", "#e5e200", "#7fd23c"]
@@ -601,25 +603,38 @@ class RaceManagerGUI:
         self.root_frame = tk.Frame(self.window)
         self.root_frame.pack(fill=tk.BOTH, expand=1)
         self.frames = {"race_display": tk.Frame(self.root_frame),
-                       "race_planning": tk.Frame(self.root_frame),
-                       "sockets": tk.Frame(self.root_frame)}
+                       "planning_display": tk.Frame(self.root_frame),
+                       "socket_display": tk.Frame(self.root_frame),
+                       "results_display": tk.Frame(self.root_frame)}
+        self.add_menu_bar()
+        
+        """ Set up the Results display. After setting it up, we will
+        forget it because we want to start with the race disylay instead
+        but be ready to switch to it later."""
+        self.frames['results_display'].pack(fill=tk.BOTH, expand=1)
+        self.results_editor = ResultsWindow(self.frames['results_display'], self.event)
+        self.frames['results_display'].forget()
 
         " Set up the socket display."
-        self.frames['sockets'].pack(fill=tk.BOTH, expand=1)
-        self.frames['sockets'].forget()
-        # TODO attach the socket code to these frames.
+        self.frames['socket_display'].pack(fill=tk.BOTH, expand=1)
+        self.socket_window = TimerWindow(self.frames['socket_display'],
+                                         self.timer_coms)
+        self.timer_coms.set_socket_frame(self.frames['socket_display'])
+        self.frames['socket_display'].forget()
+        
 
         " Set up the race planning display."
-        self.frames['race_planning'].pack(fill=tk.BOTH, expand=1)
+        self.frames['planning_display'].pack(fill=tk.BOTH, expand=1)
         self.plan_editor = registration.RegistrationWindow(
-            self.frames['race_planning'], self.event_file_name,
+            self.frames['planning_display'], self.event_file_name,
             self.event, parent=self
         )
-        self.frames['race_planning'].forget()
+        self.frames['planning_display'].forget()
 
         " Set up the race display. "
         self.frames['race_display'].pack(fill=tk.BOTH, expand=1)
-        self.add_menu_bar()
+        " Set this as the active frame"
+        self.active_frame = self.frames['race_display']
         self.main_frame = tk.Frame(self.frames['race_display'], bg='black')
         self.load_main_frame()
         self.main_frame.pack(fill=tk.BOTH, expand=1)
@@ -653,10 +668,45 @@ class RaceManagerGUI:
         settings_menu.add_command(label="Race Display", command=self.open_race_display)
         settings_menu.add_command(label="Sockets", command=self.edit_timer_hosts)
         settings_menu.add_command(label="Plan", command=self.edit_race_plan)
-        settings_menu.add_command(label="Frequency", command=self.set_counter_frequency)
-        settings_menu.add_command(label="Lanes", command=self.edit_lanes)
+        settings_menu.add_command(label="Results", command=self.edit_results_file)
         menu.add_cascade(label="Windows", menu=settings_menu)
 
+
+    """ Functions to switch the main window. """
+    def _switch_to(self, which_frame: str):
+        "Shut down any open activities"
+        self.timer_coms.stop()
+        self.results_editor.stop()
+        self.plan_editor.on_closing()
+        self.running = False
+    
+        self.active_frame.forget()
+        self.active_frame = self.frames[which_frame]
+        self.active_frame.tkraise()
+        self.active_frame.pack(fill=tk.BOTH, expand=1)
+      
+        
+    def open_race_display(self, ):
+        self._switch_to('race_display')
+        self.running = True
+        self.update_race_display(new_race=False)
+        
+
+    def edit_timer_hosts(self, *args):
+        self._switch_to('socket_display')
+        self.timer_coms.run()
+        
+            
+    def edit_race_plan(self, *args):
+        self._switch_to('planning_display')
+        self.plan_editor.run()
+    
+        
+    def edit_results_file(self, *args):
+        self._switch_to('results_display')
+        self.results_editor.run()  
+        
+        
     def close_manager(self):
         global race_needs_written, program_running
 
@@ -766,20 +816,7 @@ class RaceManagerGUI:
                                n_lanes=self.n_lanes)
         self.set_active_race_log_idx(0)
         self.update_race_display(new_race=False)
-
-    def edit_race_plan(self, *args):
-        self.frames['race_display'].forget()
-        self.frames['race_planning'].tkraise()
-        self.frames['race_planning'].pack(fill=tk.BOTH, expand=1)
-        # self.plan_editor.create_menubar(self.window)
-
-    def open_race_display(self, ):
-        self.frames['race_planning'].forget()
-        self.frames['race_display'].tkraise()
-        self.frames['race_display'].pack(fill=tk.BOTH, expand=1)
-        # self.add_menu_bar()
-        self.update_race_display(new_race=False)
-
+   
     def load_timer_hosts(self, *args):
         file_name = filedialog.askopenfilename(
             title="Select Timer Hosts File",
@@ -799,9 +836,6 @@ class RaceManagerGUI:
             self.timer_coms.save_timer_hosts(file_name)
         else:
             print("Unable to save file.")
-
-    def edit_timer_hosts(self, *args):
-        self.timer_coms.connect_to_track_hosts()
 
     def load_race_log(self, *args):
         file_name = filedialog.askopenfilename(
@@ -823,15 +857,6 @@ class RaceManagerGUI:
             self.reload_event()
         else:
             print("Unable to save file.")
-
-    def set_counter_frequency(self, *args):
-        popup = tk.Toplevel(self.window)
-        tk.Label(popup, text="Dynamically setting the frequency is not supported yet.\n" +
-                             " Try changing clock_rate in RaceManagerGUI").pack()
-
-    def edit_lanes(self, *args):
-        popup = tk.Toplevel(self.window)
-        tk.Label(popup, text="Editing the number of lanes and lane characteristics is not supported yet.\n").pack()
 
     def get_messages_from_timers(self):
         out = []
@@ -1141,5 +1166,9 @@ if __name__ == "__main__":
             show_results()
             post_placements = False
 
-        rm_gui.window.update_idletasks()
-        rm_gui.window.update()
+        if rm_gui.running:
+            rm_gui.window.update_idletasks()
+            rm_gui.window.update()
+        rm_gui.timer_coms.window_update()
+        rm_gui.results_editor.window_update()
+        rm_gui.plan_editor.window_update()
