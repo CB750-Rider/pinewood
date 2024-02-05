@@ -20,17 +20,18 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
-from typing import List
+import queue
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog, IntVar
-import tkinter.messagebox
 from race_event import Event
 import argparse
-from rm_socket import TimerComs
+from rm_socket import TimerComs, normal_color
 import registration
+from copy import deepcopy
 
+green = "\033[92m"
+yellow = "\033[93m"
 description = "A Graphical Interface for managing Pinewood Derby Races"
 
 parser = argparse.ArgumentParser(description=description)
@@ -40,8 +41,9 @@ parser.add_argument('--event_file', help='A file with the event plan listed.',
                     default='demo_race.yaml')
 parser.add_argument('--log_file', help='The name of a file to save race times to.',
                     default='log_file.yaml')
+parser.add_argument('--verbose', action='store_true')
 
-race_count = [0, 0, 0, 0]
+
 # dimensions are y = row x = column rid[y][x]
 widths = {"Times Column": 430,
           "Race Column": 350,
@@ -63,19 +65,10 @@ of the earlier classes. """
 
 
 class RaceSelector:
-    race_menu: tk.OptionMenu = None
-    add_reset_button: tk.Button = None
-    current_race_str: tk.StringVar = None
-    option_list: List = None
-    selector_frame: tk.Frame = None
-    active_race_log_idx: int = 0  # The number that shows in the drop-down under Race Log #
-    event: Event = None
-    base_frame: tk.Frame = None
 
     def __init__(self,
                  outer_frame: tk.Frame,
                  parent):
-        global race_count
         self.parent = parent
         self.event = parent.event
         rt = tk.Frame(outer_frame)
@@ -116,8 +109,6 @@ class RaceSelector:
             self.option_list[idx] += ' < ACC'
             self.active_race_log_idx = race.race_number[idx]
             self.current_race_str.set(self.option_list[idx])
-            for ii in range(self.event.n_lanes):
-                race_count[ii] = self.event.current_race.counts[idx][ii]
         else:
             self.current_race_str.set(self.option_list[-1])
             self.active_race_log_idx = self.event.current_race_log_idx
@@ -231,10 +222,7 @@ class RaceSelector:
             counts = [0, 0, 0, 0]
             self.active_race_log_idx = self.event.current_race_log_idx
 
-        for ri in range(self.event.n_lanes):
-            race_count[ri] = counts[ri]
-
-        print(race_count)
+        print(counts)
         show_results()
 
 
@@ -282,6 +270,7 @@ class TrackStatusIndicator:
                  idx: int,
                  parent):
         global race_ready, race_running
+        self.stop_count=0
         self.parent = parent  # Parent is RaceTimes
         self.idx = idx
         self.background = background
@@ -290,6 +279,7 @@ class TrackStatusIndicator:
         self.frame = si
         print("Updating the track status")
         if race_ready[idx]:
+            self.hide_stop()
             self.ready = tk.Label(si, **self.ready_to_race)
             self.ready.pack(fill=tk.X, side=tk.TOP, expand=1)
             self.running = tk.Label(si, **self.not_running)
@@ -404,12 +394,11 @@ class RaceTimes:
         self.race_time_display.config(self.race_time_default)
 
     def update_race_time_display(self):
-        global race_count, rm_gui
+        global rm_gui
         race_idx = rm_gui.times_column.race_selector.get_race_idx_from_selector()
         updated_counts = rm_gui.event.get_counts_for_race(race_idx)
-        race_count[self.idx] = updated_counts[self.idx]
-        if race_count[self.idx]:
-            final_time = race_count[self.idx] / self.parent.parent.clock_rate
+        if updated_counts[self.idx]:
+            final_time = updated_counts[self.idx] / self.parent.parent.clock_rate
             self.race_time_display.config(text="{0:.3f}".format(final_time), fg='#000000')
             return True
         else:
@@ -419,7 +408,7 @@ class RaceTimes:
 
     def update_placement_display(self):
         global placement_displays
-        race_idx = rm_gui.times_column.race_selector.get_race_idx_from_selector()
+        rm_gui.times_column.race_selector.get_race_idx_from_selector()
         if self.placement >= 0:
             self.placement_display.config({"bg": self.colors[self.idx]})
             self.placement_display.config(self.placement_settings[self.placement])
@@ -448,11 +437,8 @@ class RaceTimes:
                 )
         self.sckt_curr_conn_status = is_connected
 
-
 class TimesColumn:
-    race_selector: RaceSelector = None
-    mf: tk.Frame = None
-    event: Event
+
 
     def __init__(self,
                  parent,
@@ -498,16 +484,14 @@ class TimesColumn:
 
 
 class RaceColumn:
-    racer_id: List
-    title: tk.Label = None
-    column_label: tk.Label = None
-    mf: tk.Frame = None
 
     def __init__(self,
                  parent,
                  parent_widget,
                  title: str,
                  chips: list):
+        
+        
         global widths
         self.parent = parent
         rc = tk.Frame(parent_widget, width=widths["Race Column"])
@@ -534,12 +518,15 @@ class RaceColumn:
 
 
 class ControlsRow:
-    navigation_buttons: dict = {}
-    accept_button: tk.Button = None
-    autoReset: IntVar = None
+
 
     def __init__(self,
                  parent):
+        
+        self.navigation_buttons: dict = {}
+        self.accept_button: tk.Button = None
+        self.autoReset: IntVar = None
+    
         cr = tk.Frame(parent, height=40)
         self.navigation_buttons['Move Back'] = tk.Button(cr, text="Move Back",
                                                          command=goto_prev_race)
@@ -566,33 +553,34 @@ class ControlsRow:
 
 
 # THE GUI
+
 class RaceManagerGUI:
     window_size = "1850x1024"
-    window: tk.Tk
     lane_colors = ["#1167e8", "#e51b00", "#e5e200", "#7fd23c"]
-    n_lanes = 4
-    timer_coms: TimerComs = None
-    running = True
-    times_column: TimesColumn = None
-    racing_column: RaceColumn = None
-    on_deck_column: RaceColumn = None
-    next_up_column1: RaceColumn = None
-    controls_row: ControlsRow = None
-    event: Event = None
     clock_rate = 2000.0
-    event_file_name: str = None
-    log_file_name: str = None
 
     def __init__(self,
                  hosts_file_name: str = None,
                  event_file_name: str = None,
                  log_file_name: str = None,
                  reset_lane: int = 0,
-                 parent=None):
+                 parent=None,
+                 verbose: bool = False,
+                 n_lanes: int = 4):
+        
+        self.n_lanes = n_lanes
+        self.timer_coms: TimerComs = None
+        self.running = True
+        self.times_column: TimesColumn = None
+        self.racing_column: RaceColumn = None
+        self.on_deck_column: RaceColumn = None
+        self.next_up_column1: RaceColumn = None
+        self.controls_row: ControlsRow = None
 
         self.event_file_name = event_file_name
         self.event = Event(event_file_name, log_file_name, self.n_lanes)
         self.log_file_name = log_file_name
+        self.verbose = verbose
 
         self.window = tk.Tk()
         self.window.title("Pack 402 Pinewood Derby")
@@ -606,14 +594,36 @@ class RaceManagerGUI:
             self.timer_coms = TimerComs(
                 parent=self.window,
                 hosts_file=hosts_file_name,
-                reset_lane=reset_lane
+                reset_lane=reset_lane,
+                verbose=verbose,
             )
 
+        self.root_frame = tk.Frame(self.window)
+        self.root_frame.pack(fill=tk.BOTH, expand=1)
+        self.frames = {"race_display": tk.Frame(self.root_frame),
+                       "race_planning": tk.Frame(self.root_frame),
+                       "sockets": tk.Frame(self.root_frame)}
+
+        " Set up the socket display."
+        self.frames['sockets'].pack(fill=tk.BOTH, expand=1)
+        self.frames['sockets'].forget()
+        # TODO attach the socket code to these frames.
+
+        " Set up the race planning display."
+        self.frames['race_planning'].pack(fill=tk.BOTH, expand=1)
+        self.plan_editor = registration.RegistrationWindow(
+            self.frames['race_planning'], self.event_file_name,
+            self.event, parent=self
+        )
+        self.frames['race_planning'].forget()
+
+        " Set up the race display. "
+        self.frames['race_display'].pack(fill=tk.BOTH, expand=1)
         self.add_menu_bar()
-        self.main_frame = tk.Frame(self.window, bg='black')
+        self.main_frame = tk.Frame(self.frames['race_display'], bg='black')
         self.load_main_frame()
         self.main_frame.pack(fill=tk.BOTH, expand=1)
-        self.controls_row = ControlsRow(self.window)
+        self.controls_row = ControlsRow(self.frames['race_display'])
         # Add window delete callback
         self.window.protocol("WM_DELETE_WINDOW", self.close_manager)
         self.parent = parent
@@ -640,11 +650,12 @@ class RaceManagerGUI:
         file_menu.add_command(label="Exit", command=self.close_manager)
         menu.add_cascade(label="File", menu=file_menu)
         settings_menu = tk.Menu(menu)
+        settings_menu.add_command(label="Race Display", command=self.open_race_display)
         settings_menu.add_command(label="Sockets", command=self.edit_timer_hosts)
         settings_menu.add_command(label="Plan", command=self.edit_race_plan)
         settings_menu.add_command(label="Frequency", command=self.set_counter_frequency)
         settings_menu.add_command(label="Lanes", command=self.edit_lanes)
-        menu.add_cascade(label="Settings", menu=settings_menu)
+        menu.add_cascade(label="Windows", menu=settings_menu)
 
     def close_manager(self):
         global race_needs_written, program_running
@@ -704,10 +715,9 @@ class RaceManagerGUI:
         )
 
     def update_socket_status(self):
-        conn_status = self.timer_coms.check_connections()
         for i in range(self.n_lanes):
             self.times_column.race_times[i].update_socket_status(
-                conn_status[i])
+                self.timer_coms.comms[i].is_connected())
 
     def set_active_race_log_idx(self, idx):
         global block_loading_previous_times
@@ -758,17 +768,16 @@ class RaceManagerGUI:
         self.update_race_display(new_race=False)
 
     def edit_race_plan(self, *args):
-        popup = tk.Toplevel(self.window)
-        popup.wm_title("Race Plan Editor")
-        edit_window = registration.RegistrationWindow(
-            popup, self.event_file_name, self.event)
+        self.frames['race_display'].forget()
+        self.frames['race_planning'].tkraise()
+        self.frames['race_planning'].pack(fill=tk.BOTH, expand=1)
+        # self.plan_editor.create_menubar(self.window)
 
-        while edit_window.running:
-            popup.update_idletasks()
-            popup.update()
-
-        popup.destroy()
-
+    def open_race_display(self, ):
+        self.frames['race_planning'].forget()
+        self.frames['race_display'].tkraise()
+        self.frames['race_display'].pack(fill=tk.BOTH, expand=1)
+        # self.add_menu_bar()
         self.update_race_display(new_race=False)
 
     def load_timer_hosts(self, *args):
@@ -824,29 +833,44 @@ class RaceManagerGUI:
         popup = tk.Toplevel(self.window)
         tk.Label(popup, text="Editing the number of lanes and lane characteristics is not supported yet.\n").pack()
 
+    def get_messages_from_timers(self):
+        out = []
+        while True:
+            try:
+                out.append(self.timer_coms.q.get(block=False))
+            except queue.Empty:
+                break
+        if len(out)>=1:
+            if self.verbose:
+                print(out)
+        return out
 
 # FUNCTIONAL CODE
+
+
 class RaceManager:
-    event: Event = None
-    rm_gui: RaceManagerGUI = None
-    race_needs_written = False
-    req_win: tk.Toplevel = None
 
     def __init__(self,
                  event_file_name: str = None,
                  hosts_file_name: str = None,
                  log_file_name: str = "race_manager.log",
                  reset_lane: int = 0,  # gets the reset signal.
+                 verbose: bool = False,
                  ):
         self.rm_gui = RaceManagerGUI(
             event_file_name=event_file_name,
             log_file_name=log_file_name,
             hosts_file_name=hosts_file_name,
             reset_lane=reset_lane,
-            parent=self
+            parent=self,
+            verbose=verbose,
         )
+        self.event = self.rm_gui.event
+        self.race_needs_written = False 
+        self.req_win: tk.Toplevel = None
+        self.verbose = verbose
 
-        #self.rm_gui.timer_coms.connect_to_track_hosts(autoclose=True)
+        # self.rm_gui.timer_coms.connect_to_track_hosts(autoclose=True)
 
     def request_to_post_results(self):
         req_win = tk.Toplevel()
@@ -950,20 +974,18 @@ def accept_results():
         rm_gui.update_race_display(new_race=False)
 
 
-def find_race_count(data):
-    print(data)
+def find_race_count(data, s_idx, race_num, log_num):
     num = data.decode('utf-8').split(":")[1][:-1]
     count = int(num)
-    print("Count = {}, Seconds = {}".format(count, float(count) / 2000.0))
+    print(f"{green}Track {s_idx + 1}: Count = {count}, Seconds = {float(count) / 2000.0}. Race:Log {race_num}:{log_num}{normal_color}")
     return count
 
 
 def show_results():
-    global race_count, rm_gui
+    global rm_gui
     race_idx = rm_gui.times_column.race_selector.get_race_idx_from_selector()
     updated_counts = rm_gui.event.get_counts_for_race(race_idx)
-    for li in range(rm_gui.n_lanes):
-        race_count[li] = updated_counts[li]
+    race_count = deepcopy(updated_counts)
 
     # Find which lanes were 1st, 2nd, 3rd, and 4th
     ranks = np.argsort(race_count)
@@ -974,7 +996,7 @@ def show_results():
     for rank in ranks:
         if race_count[rank] <= 0:
             race_times[rank].placement = -1
-        elif rm_gui.event.current_race.is_empty[rank]:
+        elif rm_gui.event.current_race.is_empty(rank):
             race_times[rank].placement = -1
         elif race_count[rank] == 0:
             race_times[rank].placement = -1
@@ -985,18 +1007,24 @@ def show_results():
 
 
 def record_race_results(accept=False):
-    global race_count
     global block_loading_previous_times, rm_gui
-    print("record_race_results is called")
-    race_log_idx = rm_gui.get_active_race_log_idx()
-    race_idx = rm_gui.get_active_race_idx()
+    if accept:
+        print("****ACCEPTING RESULTS*****\n\n")
+    race_log_idx = rm_gui.get_active_race_log_idx() # This is the one the user said they want to accept
+    race_idx = rm_gui.get_active_race_idx() # This is the one the log says is accepted
+    race_counts = rm_gui.event.counts[race_log_idx]
     if rm_gui.event.current_race_log_idx is not race_log_idx:
         print("It looks like we are not current {} != {}.".format(
             rm_gui.event.current_race_log_idx, race_log_idx))
         # These results are already recorded
         if accept:
             # We need to change which race is accepted
-            idx = -1
+            idx = -1 
+            """ rm_gui.event.current_race.race_number lists which of the
+            recorded race times (race_number is the index of the recorded
+            times) were attributed to this set of racers (a.k.a. "current race".
+            We will go through and figure out which race_number matches the one
+            we pulled up so that we can get its data.""" 
             for ii, v in enumerate(rm_gui.event.current_race.race_number):
                 idx = ii
                 if v == race_log_idx:
@@ -1005,10 +1033,10 @@ def record_race_results(accept=False):
                 idx = -1
             print("idx={},copying results".format(idx))
             rm_gui.event.current_race.post_results_to_racers(i=idx)
-            times = [float(x) / rm_gui.clock_rate for x in race_count]
+            times = [float(x) / rm_gui.clock_rate for x in race_counts]
             tmp_idx = rm_gui.event.current_race_log_idx
             rm_gui.event.current_race_log_idx = race_log_idx
-            rm_gui.event.record_race_results(times, race_count,
+            rm_gui.event.record_race_results(times, race_counts,
                                              race_idx, race_log_idx,
                                              accept)
             rm_gui.update_race_selector(show_accepted_race=True,
@@ -1016,14 +1044,17 @@ def record_race_results(accept=False):
                                         race_log_idx=race_log_idx)
             rm_gui.event.current_race_log_idx = tmp_idx
             return
-    if any(race_count):
-        times = [float(x) / rm_gui.clock_rate for x in race_count]
-        rm_gui.event.record_race_results(times, race_count, race_idx,
+    if any(race_counts):
+        times = [float(x) / rm_gui.clock_rate for x in race_counts]
+        rm_gui.event.record_race_results(times, race_counts, race_idx,
                                          race_log_idx, accept)
         rm_gui.set_active_race_log_idx(rm_gui.event.current_race_log_idx)
 
 
 def send_reset_to_track(accept=False, send_reset=True):
+    """ This used to always send a reset. Now it only does if you tell it to, but
+    we already have a function named "accept_results" and this just does
+    part of that."""
     global timer_coms, race_needs_written, rm_gui, race_running
     if send_reset:
         timer_coms.send_reset_to_track(accept=accept)
@@ -1037,88 +1068,78 @@ def send_reset_to_track(accept=False, send_reset=True):
 if __name__ == "__main__":
     post_placements = True
     cli_args = parser.parse_args()
-
+    verbose = cli_args.verbose
+    
     program = RaceManager(
         event_file_name=cli_args.event_file,
         log_file_name=cli_args.log_file,
         hosts_file_name=cli_args.hosts_file,
-        reset_lane=0
+        reset_lane=0,
+        verbose=cli_args.verbose,
     )
 
     rm_gui = program.rm_gui
 
     timer_coms = rm_gui.timer_coms
 
+    complain = True
+
     while program_running:
         "Waiting for data from track hosts."
         rm_gui.update_socket_status()
-        ready_sockets, open_sockets, error_sockets = timer_coms.select(0.05)
-        open_conn = [4]
-        if len(open_sockets) != 4:
-            print("Socket disconnection detected.")
-            open_conn = timer_coms.sockets_are_in_list(open_sockets)
-            rm_gui.update_race_display(new_race=False)
-            tk.messagebox.showinfo("Connection Dropped", "A socket connection appears to have failed.")
-            #timer_coms.close()
-            #timer_coms.connect_to_track_hosts(autoclose=True, reset=True)
-        for ready_socket in ready_sockets:
-            try:
-                s_idx = timer_coms.socket_index(ready_socket)
-            except ValueError:
-                break
-            if not timer_coms.is_conn[s_idx]:
-                continue
-            data = timer_coms.get_data_from_socket(ready_socket)
+        for msg in rm_gui.get_messages_from_timers():
+            s_idx = msg['idx']
+            data = msg['data']
+            crn = rm_gui.event.current_race.plan_number
+            rli = rm_gui.event.current_race_log_idx
             if 'Ready to Race'.encode('utf-8') in data:
                 if race_needs_written:
                     record_race_results()
                     race_needs_written = False
-                print("Track {} ready.".format(s_idx + 1))
+                print(f"{yellow}Track {s_idx+1} ready. Race {crn}. Log Entry {rli}.{normal_color}")
                 rm_gui.set_active_race_log_idx(rm_gui.event.current_race_log_idx)
                 race_ready[s_idx] = True
                 race_running[s_idx] = False
-                race_complete[s_idx] = (False or
-                                        rm_gui.event.current_race.is_empty[s_idx])
+                race_complete[s_idx] = (False or 
+                                        rm_gui.event.current_race.is_empty(s_idx)) 
                 rm_gui.times_column.race_times[s_idx].placement = -1
-                race_count[s_idx] = 0
                 post_placements = True
+                rm_gui.update_race_display()
             elif 'GO!'.encode('utf-8') in data:
                 race_needs_written = True
                 rm_gui.set_active_race_log_idx(
                     rm_gui.event.current_race_log_idx)  # Force a jump to the new race when started
-                rm_gui.update_race_display(new_race=True)
-                print("Track {} racing!".format(s_idx + 1))
+                #rm_gui.update_race_display(new_race=True)
+                if verbose:
+                    print(f"Track {s_idx+1} racing! Race {crn}. Log Entry {rli}")
                 race_ready[s_idx] = False
                 race_running[s_idx] = True
+                rm_gui.update_race_display(new_race=True)
             elif 'Track count:'.encode('utf-8') in data:
-                # This if statement makes debugging easier because the 
-                # empty lanes will be ignored
-                if not rm_gui.event.current_race.is_empty[s_idx]:
-                    race_count[s_idx] = find_race_count(data)
-                    # TODO We shouldn't have to copy this both places, but we reset
-                    # race count in order to allow for things to be loaded. We should
-                    # fix this. LRB Oct 10, 2020
-                    rm_gui.event.set_counts_for_race(s_idx, race_count[s_idx])
+                if rm_gui.event.current_race.is_empty(s_idx):
+                    race_count = 0
+                else:
+                    race_count = find_race_count(data,s_idx, crn, rli)
+                rm_gui.event.set_counts_for_race(s_idx, race_count)
+                if verbose:
+                    print(f"{green}{s_idx + 1}, count={race_count}, data={data}. Race {crn}. Log Entry {rli}.{normal_color}")
                 race_ready[s_idx] = False
                 race_running[s_idx] = False
                 race_complete[s_idx] = True
                 rm_gui.times_column.update_race_time_display(s_idx)
+                rm_gui.update_race_display(new_race=False)
                 if all(race_complete):
                     rm_gui.controls_row.enable_navigation()
             else:
-                if len(data) == 0:  # indicative of socket failure
-                    tk.messagebox.showinfo("Connection Dropped", "A socket connection appears to have failed.")
-                    timer_coms.reset_socket(ready_socket)
-                    #timer_coms.connect_to_track_hosts(autoclose=True, reset=True)
+                if len(data) == 0:  # indicative of no data available
+                    continue
                 else:
-                    print(data)
+                    if verbose:
+                        print(data)
 
         if all(race_complete) and post_placements:
             show_results()
             post_placements = False
-
-        if len(ready_sockets) > 0:
-            rm_gui.update_race_display(new_race=False)
 
         rm_gui.window.update_idletasks()
         rm_gui.window.update()

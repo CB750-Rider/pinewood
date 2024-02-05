@@ -27,6 +27,7 @@ import tkinter as tk
 from queue import Queue
 from threading import Thread, Lock
 from typing import Iterable
+from rm_socket import _test_msg, _stop_counting
 
 infile = "lane_hosts.csv"
 ready_msg = "<Ready to Race.>".encode('utf-8')
@@ -192,9 +193,9 @@ def race_reset():
     race_ready = True
 
 
-def time_msg():
+def time_msg(mean=4.0):
     """Normally distributed random numbers around 4 seconds"""
-    racer_time = np.random.randn() * 0.1 + 4.0
+    racer_time = np.random.randn() * 0.1 + mean
     "Convert to counts"
     print("Time = {}".format(racer_time))
     racer_time = np.array(racer_time * 2000.0).astype(np.int32)
@@ -269,9 +270,14 @@ if __name__ == "__main__":
                     print("Do something.")
                 for rs in ready_sockets:
                     data = rs.recv(64).decode('utf-8')
+                    if len(data) > 4:
+                        print(data)
                     if 'reset' in data:
                         race_reset()
-
+                    if _test_msg.decode('utf-8') in data:
+                        rs.sendall(_test_msg)
+                    if _stop_counting.decode('utf-8') in data:
+                        rs.sendall(time_prefix + time_msg(10.0) + time_suffix)                       
             if len(writy_sockets) < 4:
                 print("A socket disconnected. We should restart")
                 for lane in the_lanes:

@@ -40,6 +40,7 @@ import yaml
 from typing import List
 from pdflatex import PDFLaTeX
 from typing import Iterable
+from copy import deepcopy
 
 default_heat_name = "No_Heat"
 
@@ -56,21 +57,16 @@ mc_sheet_header = r"""\documentclass[12pt,a4paper]{article}
 mc_table_footer = r"""\end{tabular}
 \end{document}"""
 
-current_car_number = 1
-
+active_car_numbers=[0, 13]
 
 def next_car_number():
-    global current_car_number
-    out = current_car_number
-    if current_car_number == 12:
-        current_car_number = 14
-    else:
-        current_car_number += 1
-    return out
+    i = 1
+    while i in active_car_numbers:
+        i += 1
+    return i
 
 # CLASS STUFF
 class Racer:
-    global default_heat_name
 
     def __init__(self,
                  car_number=0,
@@ -93,11 +89,13 @@ class Racer:
         self.race_log_nums = np.zeros(self.n_lanes)
         self.race_positions = np.zeros(self.n_lanes)
         if car_number > 0:
-            self.car_number = car_number
+            self.set_car_number(car_number)
         elif heat_name == "Empty":
-            self.car_number = 0
+            self._car_number = 0
+        elif heat_name == "No_Heat":
+            self._car_number = -1
         else:
-            self.car_number = next_car_number()
+            self.set_car_number()
         self.hist = {}
         if car_status is None:
             self.car_status = {
@@ -138,8 +136,9 @@ class Racer:
         return {
             'name': self.name,
             'rank': self.rank,
-            'car_number': self.car_number,
-            'car_name': self.car_name
+            'car_number': self._car_number,
+            'car_name': self.car_name,
+            'car_status': self.car_status
         }
 
     def from_dict(self, dict):
@@ -148,7 +147,7 @@ class Racer:
         if 'rank' in dict.keys():
             self.rank = dict['rank']
         if 'car_number' in dict.keys():
-            self.car_number = dict['car_number']
+            self._car_number = dict['car_number']
         if 'car_name' in dict.keys():
             self.car_name = dict['car_name']
         if 'race_times' in dict.keys():
@@ -170,25 +169,50 @@ class Racer:
 
     def chip(self):
         if self.car_name=="No_Car_Name":
-            chip = {"text": "{}\n\n#{}:{}".format(self.name,
-                                                  self.car_number,
+            chip = {"text": "{}\n\n#{}\n{}".format(self.name,
+                                                  self._car_number,
                                                   self.heat_name),
                     "font": ("Times", 21)}
         else:
-            chip = {"text": "{}\n{}\n#{}:{}".format(self.name,
+            chip = {"text": "{}\n{}\n#{}\n{}".format(self.name,
                                                     self.car_name,
-                                                    self.car_number,
+                                                    self._car_number,
                                                     self.heat_name),
                     "font": ("Times", 21)}
         return chip
 
+    def cell_str(self):
+        return f"{self._car_number:3d} {self.name} : {self.heat_name}"
+
     def mc_sheet_label(self):
-        return r"\#" + "{} {}".format(self.car_number, self.name)
+        return r"\#" + "{} {}".format(self._car_number, self.name)
 
     def set_heat(self, heat_name, heat_index):
         self.clear_races()  # Must do this BEFORE setting the new heat name!
         self.heat_name = heat_name
         self.heat_index = heat_index
+
+    def set_car_number(self, number: int = None):
+        global active_car_numbers
+        if number is None:
+            self._car_number = next_car_number()
+            active_car_numbers.append(self._car_number)
+            return
+        try:
+            if number == self._car_number:
+                return
+        except AttributeError:
+            pass
+        if number in active_car_numbers:
+            self.set_car_number()
+            raise ValueError("Unable to set the car's number to one that is already in use.")
+        try:
+            idx = active_car_numbers.index(self._car_number)
+            active_car_numbers.pop(idx)
+        except AttributeError:
+            pass
+        self._car_number = number
+        active_car_numbers.append(number)
 
     def post_result(self, lane_idx, race_log_num, race_plan_num, time,
                     count, position):
@@ -213,6 +237,9 @@ class Racer:
         else:
             return 0.0
 
+    def get_car_number(self):
+        return self._car_number
+
     def save_heat(self):
         self.hist[self.heat_name] = [self.race_log_nums, self.race_plan_nums,
                                      self.race_times, self.race_positions]
@@ -236,6 +263,8 @@ class Racer:
             return False
         return True
 
+    def is_empty(self):
+        return self.heat_name=="Empty" and self.name =="Empty Lane"
 
 class Heat:
     def __init__(self,
@@ -331,7 +360,6 @@ class Race:
                  heats: Iterable[Heat],
                  racers: Iterable[Racer],
                  number: int,
-                 is_empty: bool,
                  n_lanes: int=4):
         self.heats = heats  # 1 x n_lanes
         self.racers = racers  # 1 x n_lanes
@@ -341,11 +369,13 @@ class Race:
         self.counts = []
         self.placements = []
         self.current_race_ = 0
-        self.is_empty = is_empty  # 1 x n_lanes
         self.accepted_result_idx = -1  # The index of the race result that
         self.n_lanes = n_lanes
         # was accepted or -1 if none have been.
 
+    def is_empty(self, idx):
+        return self.racers[idx].is_empty()
+        
     def get_placements(self, times):
         return np.argsort(times) + 1
 
@@ -354,14 +384,14 @@ class Race:
         new_results = True
         for idx, rn in enumerate(self.race_number): # Make sure we don't append an existing race
             if rn == race_number:
-                self.times[idx] = race_times
-                self.counts[idx] = counts
+                self.times[idx] = deepcopy(race_times)
+                self.counts[idx] = deepcopy(counts)
                 self.placements[idx] = self.get_placements(race_times)
                 new_results = False
         if new_results:
             self.race_number.append(race_number)
-            self.times.append(race_times)
-            self.counts.append(counts)
+            self.times.append(deepcopy(race_times))
+            self.counts.append(deepcopy(counts))
             self.placements.append(self.get_placements(race_times))
         # TODO Figure out if this next line is needed in all cases. LRB March 26 2022.
         self.current_race = len(self.race_number) - 1
@@ -391,10 +421,10 @@ class Race:
 
     def to_dict(self):
         entries = []
-        for heat, racer, is_empty in zip(self.heats, self.racers, self.is_empty):
+        for heat, racer in zip(self.heats, self.racers):
             entries.append({'racer': racer.name,
                             'heat': heat.name,
-                            'empty_lane': is_empty})
+                            'empty_lane': racer.is_empty()})
         if self.accepted_result_idx < 0:
             out = {'planned_number': self.plan_number,
                    'entries': entries,
@@ -415,7 +445,7 @@ class Race:
             if racer.heat_name == "Empty":
                 out.append("")
             else:
-                out.append(f"{racer.name} : {racer.heat_name}")
+                out.append(racer.cell_str())
         return out
 
     def as_mc_sheet(self, i):
@@ -445,7 +475,6 @@ class Race:
 
 
 class Event:
-    counts: List = []
 
     def __init__(self,
                  event_file: str = None,
@@ -463,6 +492,7 @@ class Event:
         """
         self.verbose = verbose
         self.n_lanes = n_lanes
+        self.counts = []
 
         # Load the race data
         self.heats = [self.create_empty_lane_heat(), ]
@@ -496,24 +526,22 @@ class Event:
 
     def create_empty_lane_heat(self,
                                ability_rank=100000000000000):
-        racer_names = ["empty {}".format(i + 1) for i in range(self.n_lanes)]
-        racers = [Racer(name=x, heat_name="Empty") for x in racer_names]
+        racers = [Racer(name="Empty Lane", heat_name="Empty") for _ in range(self.n_lanes)]
         return Heat(name="Empty",
                     racers=racers,
                     ability_rank=ability_rank)
 
 
     def load_races_from_file(self, file_name):
+
         try:
-            f = open(file_name)
+            self._load_races_from_yaml(file_name)
         except FileNotFoundError:
             print(f"Unable to open {file_name} for reading.")
             return
+        except Exception as e:
+            raise
 
-        if '.yaml' in file_name:
-            self._load_races_from_yaml(file_name)
-        else:  # Legacy Reader
-            self._load_races_from_yaml(file_name)
         try:
             self.current_race = self.races[0]
         except IndexError:
@@ -699,7 +727,7 @@ class Event:
     def set_counts_for_race(self, lane_idx, count):
         while len(self.counts) <= self.current_race_log_idx:
             self.counts.append([0] * self.n_lanes)
-        self.counts[self.current_race_log_idx][lane_idx] = count
+        self.counts[self.current_race_log_idx][lane_idx] = deepcopy(count)
 
     def mc_table_header(self):
         out = r"\begin{tabular}{l|" + " c" * self.n_lanes + "}\n"
@@ -737,13 +765,13 @@ class Event:
         si = np.argsort(times)
 
         with open(fname, "w") as outfile:
-            header = ''.join(("Rank".rjust(8), "Name".rjust(30),
+            header = ' '.join(("Rank".rjust(8), "Name".rjust(30),
                               "Rank".rjust(12), "Time".rjust(10), '\n'))
             outfile.write(header)
             rank = 1
             for i in range(len(times)):
                 if times[si[i]] > 0:
-                    line = "{0:8d}{1}{2}{3:10.4f}\n".format(rank,
+                    line = "{0:8d} {1} {2} {3:10.4f}\n".format(rank,
                                                             racer_names[si[i]].rjust(30),
                                                             heat_names[si[i]].rjust(12),
                                                             times[si[i]])
@@ -927,7 +955,6 @@ class Event:
         for xi in range(len(needs_lane[0])):
             heats = []
             racers = []
-            is_empty = []
             for yi in range(self.n_lanes):
                 # We need to calculate the index for a transposed
                 # array.
@@ -937,8 +964,7 @@ class Event:
                 data = needs_lane[li][ri]
                 heats.append(self.heats[data[0]])
                 racers.append(self.heats[data[0]].racers[data[1]])
-                is_empty.append(data[2] == empty_heat)
-            new_races.append(Race(heats, racers, xi, is_empty, n_lanes=self.n_lanes))
+            new_races.append(Race(heats, racers, xi, n_lanes=self.n_lanes))
 
         self.races = new_races
 
@@ -973,19 +999,16 @@ class Event:
     def create_race_from_list(self, race_list, idx):
         racers = []
         heats = []
-        is_empty = []
         empty_idx = 0
         for entry in race_list:
             heat, racer = self.parse_cell_text(entry)
             heats.append(heat)
             if heats[-1] is self.heats[-1]:
-                is_empty.append(True)
                 racers.append(self.heats[-1].racers[empty_idx])
                 empty_idx += 1
             else:
-                is_empty.append(False)
                 racers.append(racer)
-        return Race(heats, racers, idx, is_empty)
+        return Race(heats, racers, idx)
 
     def adopt_revised_plan(self, revised_plan):
         new_races = []
@@ -1011,6 +1034,7 @@ class Event:
         return out_list
 
 # DATA LOAD
+
 def create_heat_from_line(line):
     entries = line.split(',')
     heat_name = ' '.join(entries[0].split(' ')[:-1])
@@ -1028,12 +1052,19 @@ def create_racer_from_dict(rcr_dict, heat_name):
     try:
         car_num = rcr_dict['car_number']
     except KeyError:
-        car_num = next_car_number()
-    out = Racer(name=rcr_dict['name'],
-                rank=rcr_dict['rank'],
-                car_number=car_num,
-                car_name=rcr_dict['car_name'],
-                heat_name=heat_name)
+        car_num = 0
+    try:
+        out = Racer(name=rcr_dict['name'],
+                    rank=rcr_dict['rank'],
+                    car_number=car_num,
+                    car_name=rcr_dict['car_name'],
+                    heat_name=heat_name)
+    except ValueError:  # The car number is taken
+        out = Racer(name=rcr_dict['name'],
+                    rank=rcr_dict['rank'],
+                    car_name=rcr_dict['car_name'],
+                    heat_name=heat_name)
+
     if 'car_status' in rcr_dict.keys():
         car_status = rcr_dict['car_status']
         for key in car_status:
@@ -1050,9 +1081,9 @@ def create_heat_from_dict(heat):
         for rcr in heat['racers']:
             racer = create_racer_from_dict(rcr, heat['name'])
             out.add_racer(racer)
-    except TypeError:
+    except TypeError as e:
         pass
-    except KeyError:
+    except KeyError as e:
         pass
     return out
 
@@ -1062,12 +1093,10 @@ def create_race_from_line(line, all_heats):
     race_num = int(entries[0].split(' ')[-1])
     heats = []
     racers = []
-    is_empty = [False, False, False, False]
     for li, ent in enumerate(entries[1:5]):
         if len(ent) < 3:
             heats.append(all_heats[-1])
             racers.append(all_heats[-1].racers[li])
-            is_empty[li] = True
         racer_name = ' '.join(ent.split(':')[:-1])
         heat_name = ent.split(':')[-1]
         for heat in all_heats:
@@ -1082,19 +1111,17 @@ def create_race_from_line(line, all_heats):
     for i in range(4):
         out_str = out_str + " {}:{}".format(racers[i].name, heats[i].name)
     print(out_str)
-    return Race(heats, racers, race_num, is_empty)
+    return Race(heats, racers, race_num)
 
 
 def create_race_from_dict(race, available_heats):
     race_num = race['planned_number']
     heats = []
     racers = []
-    is_empty = np.zeros(len(race['entries']), dtype=np.bool_)
     for li, ent in enumerate(race['entries']):
         if ent['empty_lane']:
             heats.append(available_heats[-1])
             racers.append(available_heats[-1].racers[li])
-            is_empty[li] = True
         else:
             racer_name = ent['racer']
             heat_name = ent['heat']
@@ -1113,4 +1140,4 @@ def create_race_from_dict(race, available_heats):
     for racer, heat in zip(racers, heats):
         out_str += " {}:{}".format(racer.name, heat.name)
     print(out_str)
-    return Race(heats, racers, race_num, is_empty)
+    return Race(heats, racers, race_num)

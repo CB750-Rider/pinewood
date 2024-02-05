@@ -59,12 +59,13 @@ def new_fname(old_name):
 
 class RegistrationWindow:
     def __init__(self,
-                 top: tk.Tk,
+                 top: tk.Frame,
                  event_file: str = None,
-                 event: Event = None):
-        self.top = top
+                 event: Event = None,
+                 parent=None):
+        self.parent = parent
 
-        top.title(event_file)
+        self.top = top
 
         self.in_file_name = event_file
 
@@ -75,11 +76,11 @@ class RegistrationWindow:
         else:
             self.event = event
 
-        top.protocol("WM_DELETE_WINDOW", self.on_closing)
+        # top.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.running = True
         self.autogenerate_race_plan = tk.IntVar(value=True)
 
-        self.create_menubar(top)
+        # self.create_menubar(top)
 
         self.race_list = RaceList(self)
 
@@ -97,7 +98,7 @@ class RegistrationWindow:
     def create_menubar(self, top):
         menubar = tk.Menu(top)
         filemenu = tk.Menu(menubar, tearoff=0)
-        try: 
+        try:
             if cli_args.color is not None:
                 menubar.configure(background=cli_args.color)
                 filemenu.configure(background=cli_args.color)
@@ -250,7 +251,7 @@ class RacerDialog:
             else:
                 car_name = racer.car_name
             self.car_name_field = self.text_input("Car Name", 25, car_name)
-            self.car_number_field = self.text_input("Car Number", 15, str(racer.car_number))
+            self.car_number_field = self.text_input("Car Number", 15, str(racer.get_car_number()))
 
             bottom_frame = tk.Frame(self.frame)
             bottom_frame.pack(fill=tk.BOTH, expand=True)
@@ -380,13 +381,12 @@ class RacerDialog:
         if len(car_name) > 0:
             self.racer.car_name = car_name
         try:
-            self.racer.car_number = int(self.car_number_field.get())
+            self.racer.set_car_number(int(self.car_number_field.get()))
         except ValueError:
             error_text = tk.Label(self.hidden_frame,
-                                  text="Unable to convert the car number to int.",
+                                  text="Unable to set the car number. Is that number taken?",
                                   fg='red',
                                   bg='black')
-            return
         self.car_status['notes'] = self.notes.get(1.0, tk.END)
         for key in self.racer.car_status.keys():
             if key == 'questions' or key == 'notes':
@@ -596,10 +596,28 @@ class HeatList:
                                   command=self.delete_selection)
         delete_button.pack(fill=tk.X, pady=16)
 
+
+
         ag_selector = tk.Checkbutton(self._outer_frame,
                                      text="Autogen Race Plan",
                                      variable=self.parent.autogenerate_race_plan)
-        ag_selector.pack(fill=tk.X)
+        ag_selector.pack(fill=tk.X, pady=25)
+
+        button = tk.Button(self._outer_frame, text="Save", font=('Serif', 18),
+                                command=self.parent.save)
+        button.pack(fill=tk.X, pady=2)
+
+        button = tk.Button(self._outer_frame, text="Save As", font=('Serif', 18),
+                           command=self.parent.save_as)
+        button.pack(fill=tk.X, pady=2)
+
+        button = tk.Button(self._outer_frame, text="Print", font=('Serif', 18),
+                           command=self.parent.print)
+        button.pack(fill=tk.X, pady=2)
+
+        exit_button = tk.Button(self._outer_frame, text="Exit", font=('Serif', 18),
+                                command=self.parent.parent.open_race_display)
+        exit_button.pack(fill=tk.X, pady=2)
 
         self.update_heat_list()
 
@@ -707,7 +725,7 @@ class RaceList:
         self.sheet.dehighlight_cells(row='all')
 
     def highlight_racer(self, racer):
-        cell_str = f"{racer.name} : {racer.heat_name}"
+        cell_str = racer.cell_str()
         for ri, row in enumerate(self.sheet_data):
             for ci, entry in enumerate(row):
                 if entry == cell_str:
@@ -717,7 +735,7 @@ class RaceList:
 
     def count_races(self, racer):
         count = 0
-        cell_str = f"{racer.name} : {racer.heat_name}"
+        cell_str = racer.cell_str()
         for ri, row in enumerate(self.sheet_data):
             for ci, entry in enumerate(row):
                 if entry == cell_str:
@@ -798,5 +816,3 @@ if __name__ == "__main__":
 
     if out_fname is not None:
         event.print_plan_yaml(out_fname, revised_plan=plan)
-
-
