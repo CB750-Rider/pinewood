@@ -24,10 +24,10 @@ import tkinter as tk
 from race_event import Event, Heat, Racer
 import argparse
 import datetime
-from tkinter import messagebox, filedialog, ttk
+from tkinter import messagebox, filedialog
 import os
 import tksheet
-from pickle import TRUE
+from rm_socket import MainWindow
 
 description = "A Graphical Interface for setting up Pinewood Derby Races"
 
@@ -58,12 +58,14 @@ def new_fname(old_name):
     return new_name
 
 
-class RegistrationWindow:
+class RegistrationWindow(MainWindow):
     def __init__(self,
                  top: tk.Frame,
                  event_file: str = None,
                  event: Event = None,
                  parent=None):
+        super().__init__(top)
+
         self.parent = parent
 
         self.top = top
@@ -137,9 +139,6 @@ class RegistrationWindow:
         self.event.print_plan_yaml(self.out_file_name,
                                    revised_plan=self.race_list.sheet_data)
 
-    def run(self):
-        self.running = TRUE
-        
     def check_revised_plan(self):
         problems = []
         for heat in self.event.heats[:-1]:
@@ -172,17 +171,6 @@ class RegistrationWindow:
                 if pi > 10:
                     messagebox.showerror(title="More Errors",
                                          message="Not showing any more errors")
-
-    def on_closing(self):
-        self.running = False
-
-    def window_update(self):
-        if self.running:
-            self.mainloop()
-            
-    def mainloop(self):
-        self.top.mainloop()
-        return self.event, self.out_file_name, self.race_list.sheet_data
 
     def check_racer_pane(self):
         cur_idx = self.heat_list.get_selected_heat_index()
@@ -220,6 +208,17 @@ class RegistrationWindow:
             heat = self.event.heats[heat_index]
             return heat.racers[index]
 
+    def _pack(self):
+        return
+
+    def _forget(self):
+        return
+
+    def _tkraise(self):
+        return
+
+    def _update(self):
+        return
 
 class RacerDialog:
     def __init__(self,
@@ -798,8 +797,8 @@ class SaveWindow:
         self.parent.destroy()
 
     def get_preference(self):
-        if self.running:
-            self.parent.mainloop()
+        #if self.running:
+        #    self.parent.mainloop()
         return self.return_name
 
 

@@ -41,6 +41,51 @@ running_race = True
 mutex = Lock()
 
 
+class _TestIndicator:
+    def __init__(self, frame):
+        self.canvas = tk.Canvas(frame, width=24, height=24)
+        self.oval = self.canvas.create_oval(12, 12, 20, 20)
+        self.off_count = 0
+        self.off()
+
+    def pack(self, *args, **kwargs):
+        self.canvas.pack(*args, **kwargs)
+
+    def on(self, count=1000):
+        self.canvas.itemconfig(self.oval, fill='#00ff1a')
+        self.off_count = count
+
+    def off(self, count=1):
+        if self.off_count <= 0:
+            self.canvas.itemconfig(self.oval, fill='#001c03')
+        elif self.off_count < 100:
+            self.canvas.itemconfig(self.oval, fill='#002504')
+            self.off_count -= count
+        elif self.off_count < 150:
+            self.canvas.itemconfig(self.oval, fill='#004907')
+            self.off_count -= count
+        elif self.off_count < 200:
+            self.canvas.itemconfig(self.oval, fill='#005c09')
+            self.off_count -= count
+        elif self.off_count < 250:
+            self.canvas.itemconfig(self.oval, fill='#00750c')
+            self.off_count -= count
+        elif self.off_count < 300:
+            self.canvas.itemconfig(self.oval, fill='#00920f')
+            self.off_count -= count
+        elif self.off_count < 350:
+            self.canvas.itemconfig(self.oval, fill='#00ab12')
+            self.off_count -= count
+        elif self.off_count < 400:
+            self.canvas.itemconfig(self.oval, fill='#00c614')
+            self.off_count -= count
+        elif self.off_count < 450:
+            self.canvas.itemconfig(self.oval, fill='#00e417')
+            self.off_count -= count
+        else:
+            self.off_count -= count
+
+
 class Lane:
     def __init__(self, idx):
         self.number = idx + 1
@@ -54,6 +99,7 @@ class Lane:
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.check_button = None
         self.drop_button = None
+        self.drop_requested = False
 
     def add_lane_to_window(self, parent: tk.Widget):
         self.reporting = tk.BooleanVar()
@@ -63,8 +109,15 @@ class Lane:
         self.check_button = tk.Checkbutton(frame, text="Lane {}".format(self.number)
                                            , variable=self.reporting)
         self.check_button.pack(side=tk.LEFT)
-        self.drop_button = tk.Button(frame, text="Drop", command=self.drop_connection)
+        self.drop_button = tk.Button(frame, text="Drop", command=self.request_drop)
         self.drop_button.pack(side=tk.RIGHT)
+        test_label = tk.Label(frame, text="Test Received")
+        test_label.pack(side=tk.RIGHT)
+        self.test_indicator = _TestIndicator(frame)
+        self.test_indicator.pack(side=tk.RIGHT)
+
+    def request_drop(self):
+        self.drop_requested = True
 
     def drop_connection(self):
         if self.drop_button['text'] == 'Drop':
@@ -83,6 +136,7 @@ class Lane:
         else:
             self.drop_button['text'] = 'Drop'
             self.start_socket()
+        self.drop_requested = False
 
     def start_socket(self):
         Thread(target=self._await_connection, daemon=True).start()
@@ -93,7 +147,8 @@ class Lane:
             try:
                 self._socket.bind((self.host, self.port))
             except OSError:
-                print(f"Unable to connect to {self.host}:{self.port}. It is probably already in use. Retry in 5 seconds.")
+                print(
+                    f"Unable to connect to {self.host}:{self.port}. It is probably already in use. Retry in 5 seconds.")
                 time.sleep(5.0)
             else:
                 break
@@ -135,6 +190,7 @@ class Lane:
 class MainWindow:
     def __init__(self, lanes: Iterable[Lane]):
         self.window = tk.Tk()
+        self.lanes = lanes
         for lane in lanes:
             lane.add_lane_to_window(self.window)
             lane.start_socket()
@@ -158,6 +214,8 @@ class MainWindow:
     def update(self):
         self.window.update()
         self.window.update_idletasks()
+        for lane in self.lanes:
+            lane.test_indicator.off()
 
     def activate_reset_button(self):
         self.reset_button.configure(command=race_reset)
@@ -166,6 +224,28 @@ class MainWindow:
     def deactivate_reset_button(self):
         self.reset_button.configure(command=not_ready)
         self.update()
+
+    def blink_test_light(self, rs):
+        lane = self.get_lane_with_socket(rs)
+        if lane is None:
+            return
+        lane.test_indicator.on()
+        self.update()
+
+    def get_lane_with_socket(self, rs):
+        for lane in self.lanes:
+            if lane.connection == rs:
+                return lane
+
+    def get_connections(self):
+        connections = []
+        for lane in self.lanes:
+            ca = lane.get_connections()
+            if ca[0] is None:
+                continue
+            else:
+                connections.append(ca[0])
+        return connections
 
 
 def make_str(race_number):
@@ -188,8 +268,11 @@ def set_host_and_port(lanes: Iterable[Lane], infile: str):
 def race_reset():
     global race_ready, the_lanes
     for lane in the_lanes:
-        lane.connection.sendall(reset_msg)
-        lane.connection.sendall(ready_msg)
+        try:
+            lane.connection.sendall(reset_msg)
+            lane.connection.sendall(ready_msg)
+        except AttributeError:
+            pass
     race_ready = True
 
 
@@ -226,18 +309,6 @@ def close_manager():
     raise SystemExit
 
 
-def get_connections():
-    global the_lanes
-    connections = []
-    for lane in the_lanes:
-        ca = lane.get_connections()
-        if ca[0] is None:
-            return None
-        else:
-            connections.append(ca[0])
-    return connections
-
-
 if __name__ == "__main__":
     #    global infile,host,port,race_ready
     the_lanes = [Lane(x) for x in range(4)]
@@ -259,7 +330,7 @@ if __name__ == "__main__":
 
     while not end_program:
 
-        conn = get_connections()
+        conn = window.get_connections()
 
         if conn is not None:
             window.activate_reset_button()
@@ -271,17 +342,19 @@ if __name__ == "__main__":
                 for rs in ready_sockets:
                     data = rs.recv(64).decode('utf-8')
                     if len(data) > 4:
-                        print(data)
+                        if _test_msg.decode('utf-8') in data:
+                            rs.sendall(_test_msg)
+                            window.blink_test_light(rs)
+                        else:
+                            print(data)
                     if 'reset' in data:
                         race_reset()
-                    if _test_msg.decode('utf-8') in data:
-                        rs.sendall(_test_msg)
                     if _stop_counting.decode('utf-8') in data:
-                        rs.sendall(time_prefix + time_msg(10.0) + time_suffix)                       
-            if len(writy_sockets) < 4:
+                        rs.sendall(time_prefix + time_msg(10.0) + time_suffix)
+            if len(writy_sockets) < len(conn):
                 print("A socket disconnected. We should restart")
                 for lane in the_lanes:
-                    lane.close_socket()
+                    lane.drop_connection()
                 connections_ready = False
 
             if race_ready and running_race:
@@ -290,6 +363,8 @@ if __name__ == "__main__":
                 run_race(the_lanes)
                 race_ready = False
 
+        for lane in window.lanes:
+            if lane.drop_requested:
+                lane.drop_connection()
+
         window.update()
-
-

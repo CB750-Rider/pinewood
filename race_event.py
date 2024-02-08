@@ -57,13 +57,15 @@ mc_sheet_header = r"""\documentclass[12pt,a4paper]{article}
 mc_table_footer = r"""\end{tabular}
 \end{document}"""
 
-active_car_numbers=[0, 13]
+active_car_numbers = [0, 13]
+
 
 def next_car_number():
     i = 1
     while i in active_car_numbers:
         i += 1
     return i
+
 
 # CLASS STUFF
 class Racer:
@@ -168,16 +170,16 @@ class Racer:
             self.car_status = dict['car_status']
 
     def chip(self):
-        if self.car_name=="No_Car_Name":
+        if self.car_name == "No_Car_Name":
             chip = {"text": "{}\n\n#{}\n{}".format(self.name,
-                                                  self._car_number,
-                                                  self.heat_name),
+                                                   self._car_number,
+                                                   self.heat_name),
                     "font": ("Times", 21)}
         else:
             chip = {"text": "{}\n{}\n#{}\n{}".format(self.name,
-                                                    self.car_name,
-                                                    self._car_number,
-                                                    self.heat_name),
+                                                     self.car_name,
+                                                     self._car_number,
+                                                     self.heat_name),
                     "font": ("Times", 21)}
         return chip
 
@@ -264,7 +266,8 @@ class Racer:
         return True
 
     def is_empty(self):
-        return self.heat_name=="Empty" and self.name =="Empty Lane"
+        return self.heat_name == "Empty" and self.name == "Empty Lane"
+
 
 class Heat:
     def __init__(self,
@@ -360,7 +363,7 @@ class Race:
                  heats: Iterable[Heat],
                  racers: Iterable[Racer],
                  number: int,
-                 n_lanes: int=4):
+                 n_lanes: int = 4):
         self.heats = heats  # 1 x n_lanes
         self.racers = racers  # 1 x n_lanes
         self.plan_number = number  # The number from the race plan
@@ -375,14 +378,14 @@ class Race:
 
     def is_empty(self, idx):
         return self.racers[idx].is_empty()
-        
+
     def get_placements(self, times):
         return np.argsort(times) + 1
 
     def save_results(self, race_number, race_times, counts):
         # Post results to the current race number
         new_results = True
-        for idx, rn in enumerate(self.race_number): # Make sure we don't append an existing race
+        for idx, rn in enumerate(self.race_number):  # Make sure we don't append an existing race
             if rn == race_number:
                 self.times[idx] = deepcopy(race_times)
                 self.counts[idx] = deepcopy(counts)
@@ -531,7 +534,6 @@ class Event:
                     racers=racers,
                     ability_rank=ability_rank)
 
-
     def load_races_from_file(self, file_name):
 
         try:
@@ -575,7 +577,7 @@ class Event:
                     try:
                         self.races.append(
                             create_race_from_line(line, self.heats))
-                    except: # Sometimes car names have "Race" in them and this will fail
+                    except:  # Sometimes car names have "Race" in them and this will fail
                         pass
 
     def print_heats(self):
@@ -766,15 +768,15 @@ class Event:
 
         with open(fname, "w") as outfile:
             header = ' '.join(("Rank".rjust(8), "Name".rjust(30),
-                              "Rank".rjust(12), "Time".rjust(10), '\n'))
+                               "Rank".rjust(12), "Time".rjust(10), '\n'))
             outfile.write(header)
             rank = 1
             for i in range(len(times)):
                 if times[si[i]] > 0:
                     line = "{0:8d} {1} {2} {3:10.4f}\n".format(rank,
-                                                            racer_names[si[i]].rjust(30),
-                                                            heat_names[si[i]].rjust(12),
-                                                            times[si[i]])
+                                                               racer_names[si[i]].rjust(30),
+                                                               heat_names[si[i]].rjust(12),
+                                                               times[si[i]])
                     outfile.write(line)
                     rank += 1
         return 0
@@ -837,7 +839,8 @@ class Event:
             try:
                 chips.append(race.racers[i].chip())
             except IndexError:
-                print("There was an error loading the races. If possible, close this application, go into the race_plan yaml file and delete the entire 'races' section then re-run the application.")
+                print(
+                    "There was an error loading the races. If possible, close this application, go into the race_plan yaml file and delete the entire 'races' section then re-run the application.")
                 raise
         return chips
 
@@ -848,7 +851,7 @@ class Event:
         self.goto_race(self.current_race_idx - 1)
 
     def goto_race(self, idx):
-        if self.last_race < 0: # If we call this before we populate races the next two statements lead to an infinite recursion.
+        if self.last_race < 0:  # If we call this before we populate races the next two statements lead to an infinite recursion.
             self.current_race_idx = 0
         elif idx < 0:
             self.goto_race(0)
@@ -1032,6 +1035,7 @@ class Event:
             out_list.append(race.get_racer_list([]))
 
         return out_list
+
 
 # DATA LOAD
 
