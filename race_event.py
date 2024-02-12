@@ -844,6 +844,32 @@ class Event:
                 raise
         return chips
 
+    def get_lane_average_counts(self, li):
+        """ Go through the accepted results, and average up all
+        the counts for lane li. """
+        sum = 0
+        count = 0
+        for race in self.races:
+            ai = race.accepted_result_idx
+            if race.is_empty(li):
+                continue                
+            try:
+                sum += race.counts[ai][li]
+                count += 1
+            except IndexError:
+                continue
+            
+        return sum/count
+    
+    def get_average_counts(self):
+        sum = 0
+        count = 0
+        for li in range(self.n_lanes):
+            sum += self.get_lane_average_counts(li)
+            count += 1
+        return sum/count
+        
+        
     def goto_next_race(self):
         self.goto_race(self.current_race_idx + 1)
 

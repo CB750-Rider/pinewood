@@ -48,7 +48,6 @@ parser.add_argument('--log_file', help='The name of a file to save race times to
                     default='log_file.yaml')
 parser.add_argument('--verbose', action='store_true')
 
-
 # dimensions are y = row x = column rid[y][x]
 widths = {"Times Column": 430,
           "Race Column": 350,
@@ -62,6 +61,7 @@ large_font = ("Times", 25)
 program_running = True
 race_needs_written = False
 block_loading_previous_times = False
+clock_rate = 4000.0
 
 # GUI ELEMENTS
 """ These classes are for the different GUI portions. They are in a 
@@ -611,7 +611,7 @@ class RaceDisplay(MainWindow):
 class RaceManagerGUI:
     window_size = "1850x1024"
     lane_colors = ["#1167e8", "#e51b00", "#e5e200", "#7fd23c"]
-    clock_rate = 2000.0
+    clock_rate = clock_rate
 
     def __init__(self,
                  hosts_file_name: str = None,
@@ -641,7 +641,7 @@ class RaceManagerGUI:
 
         if hosts_file_name is not None:
             self.timer_coms = TimerComs(
-                parent=self.window,
+                parent=self,
                 hosts_file=hosts_file_name,
                 reset_lane=reset_lane,
                 verbose=verbose,
@@ -652,6 +652,7 @@ class RaceManagerGUI:
         self.frames = {"race_display": tk.Frame(self.root_frame),
                        "planning_display": tk.Frame(self.root_frame),
                        "socket_display": tk.Frame(self.root_frame),
+                       "cailibration_display": tk.Frame(self.root_frame),
                        "results_display": tk.Frame(self.root_frame)}
         self.add_menu_bar()
 
@@ -1039,7 +1040,7 @@ def find_race_count(data, s_idx, race_num, log_num):
     num = data.decode('utf-8').split(":")[1][:-1]
     count = int(num)
     print(
-        f"{green}Track {s_idx + 1}: Count = {count}, Seconds = {float(count) / 2000.0}. Race:Log {race_num}:{log_num}{normal_color}")
+        f"{green}Track {s_idx + 1}: Count = {count}, Seconds = {float(count) / clock_rate}. Race:Log {race_num}:{log_num}{normal_color}")
     return count
 
 
@@ -1196,6 +1197,13 @@ if __name__ == "__main__":
                 rm_gui.update_race_display(new_race=False)
                 if all(race_complete):
                     rm_gui.controls_row.enable_navigation()
+            if 'Calibration:'.encode('utf-8') in data:
+                cc = data.decode('utf-8').split(":")[-1]
+                cc = cc.split('>')[0]
+                try:
+                    rm_gui.timer_coms.comms[s_idx].cal_constant = int(cc)
+                except ValueError:
+                    pass 
             else:
                 if len(data) == 0:  # indicative of no data available
                     continue

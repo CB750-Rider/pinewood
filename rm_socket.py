@@ -26,10 +26,10 @@ import time
 import select
 from multiprocessing import Queue, Process, Pipe
 import datetime
-from _datetime import date
 
 message_color = "\033[94m"
 normal_color = "\033[0m"
+lane_colors = ["#1167e8", "#e51b00", "#e5e200", "#7fd23c"]
 
 small_font = ("Serif", 16)
 med_font = ("Times", 21)
@@ -43,13 +43,15 @@ _check_connection_msg = "check_conn".encode('utf-8')
 _socket_reset_msg = "reset_socket".encode('utf-8')
 _connection_success_msg = "successful_conn".encode('utf-8')
 _connectien_dropped_msg = "dropped_conn".encode('utf-8')
+_test_on_msg = "test_on".encode('utf-8')
+_test_off_msg = "test_off".encode('utf-8')
 
 # Socket messages for controlling the timers
 _test_msg = "<test>".encode('utf-8')
 _reset_msg = "<reset>".encode('utf-8')
 _resend_data_msg = "<resend>".encode('utf-8')
-_stop_counting = "<stopCt>".encode('utf-8')
-counter_messages = [_test_msg, _reset_msg, _resend_data_msg, _stop_counting]
+_get_cal = "<get_Cal>".encode('utf-8')
+counter_messages = [_test_msg, _reset_msg, _resend_data_msg, _get_cal]
 
 # Used to indicate no data on the socket
 _null_data = "".encode('utf-8')
@@ -74,7 +76,8 @@ class _TimerSocket:
                  pipe: Pipe,
                  queue: Queue,
                  verbose: bool = False,
-                 index: int = -1):
+                 index: int = -1,
+                 test_active: bool = False):
         self.address = address
         self.port = port
         self.pipe = pipe
@@ -82,10 +85,11 @@ class _TimerSocket:
         self.index = index
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.queue = queue
+        self.test_active = test_active
         try:
             self.connect()
         except Exception as e:
-            #self._vprint(repr(e))
+            # self._vprint(repr(e))
             pass
         self.running = True
         self.connection_active = False
@@ -95,16 +99,19 @@ class _TimerSocket:
         if self.verbose:
             print(f"{message_color}rm_socket._TimerSocket: {msg} {normal_color}")
 
+    def set_test_active(self, state: bool):
+        self.test_active = state
+
     def reset_socket(self):
         """ Closes and resets the socket. """
         self._close_socket()
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        
+
         self.connect()
 
     def _close_socket(self):
-        
+
         try:
             self.socket.shutdown(socket.SHUT_RDWR)
         except OSError:
@@ -112,7 +119,7 @@ class _TimerSocket:
         self.socket.close()
 
     def _shutdown(self):
-        self._vprint(f"Shutting down process {self.index+1}.")
+        self._vprint(f"Shutting down process {self.index + 1}.")
         self.running = False
         self._close_socket()
 
@@ -158,8 +165,21 @@ class _TimerSocket:
                 self.pipe.send(_conf_msg)
             except Exception as e:
                 self.pipe.send(repr(e).encode('utf-8'))
-
+        elif msg == _test_on_msg:
+            self.set_test_active(True)
+            self.pipe.send(_test_on_msg)
+        elif msg == _test_off_msg:
+            self.set_test_active(False)
+            self.pipe.send(_test_off_msg)
         elif msg in counter_messages:
+            if n_writer < 1:
+                raise ConnectionError("Unable to send message to socket")
+            try:
+                self.socket.sendall(msg)
+                self.pipe.send(_conf_msg)
+            except Exception as e:
+                self.pipe.send(repr(e).encode('utf-8'))
+        elif "<cal ".encode('utf-8') in msg:
             if n_writer < 1:
                 raise ConnectionError("Unable to send message to socket")
             try:
@@ -173,11 +193,11 @@ class _TimerSocket:
     def get_data_from_socket(self):
         try:
             socket_data = self.socket.recv(64)
-            #out = socket_data
-            #while len(socket_data) > 0:
+            # out = socket_data
+            # while len(socket_data) > 0:
             #    socket_data = self.socket.recv(64)
             #    out += socket_data
-            
+
         except ConnectionResetError:
             return _null_data
         return socket_data
@@ -185,41 +205,41 @@ class _TimerSocket:
     def check_connection(self):
         if datetime.datetime.now() - self.last_check < datetime.timedelta(seconds=4.0):
             return self.connection_active
-        
+
         self.last_check = datetime.datetime.now()
-        rdr, wrtr, err = select.select([self.socket, ],
+        rdr, wrtr, _ = select.select([self.socket, ],
                                        [self.socket, ],
                                        [self.socket, ],
                                        0.25)
         if len(wrtr) == 1:
             try:
-                self.socket.sendall(_test_msg)
+                if self.test_active:
+                    self.socket.sendall(_test_msg)
                 time.sleep(0.1)
 
             except Exception as e:
-                self._vprint(f"!!Error line 195 {repr(e)} found with socket {self.index+1}!!")
+                self._vprint(f"!!Error line 195 {repr(e)} found with socket {self.index + 1}!!")
                 self.connection_active = False
                 try:
                     self.reset_socket()
                 except Exception:
                     pass
                 return False
-        
+
         if len(rdr) == 1:
             try:
                 rv = self.get_data_from_socket()
                 self.connection_active = True
                 return True
             except Exception as e:
-                self._vprint(f"!!Error line 205 {repr(e)} found with socket {self.index+1}!!")
+                self._vprint(f"!!Error line 205 {repr(e)} found with socket {self.index + 1}!!")
                 self.connection_active = False
                 return False
-            
 
     def connect(self):
         self.socket.connect((self.address, self.port))
         self.socket.setblocking(False)
-        
+
     def send(self, msg: bytes):
         " Sends data to the socket. "
         self.socket.sendall(msg)
@@ -235,7 +255,7 @@ class _TimerSocket:
                     data = self.get_data_from_socket()
                     if len(data) > len(_null_data):
                         self.queue.put({'idx': self.index, 'data': data})
-                        self._vprint(f"{self.index+1} Sent {data.decode('utf-8')}")
+                        self._vprint(f"{self.index + 1} Sent {data.decode('utf-8')}")
                 except Exception as e:
                     self.pipe.send(('line 231: ' + repr(e)).encode('utf-8'))
                     try:
@@ -246,9 +266,6 @@ class _TimerSocket:
                         self.pipe.send(_connection_success_msg)
                     # Manage error message density by checking every second.
                     time.sleep(1.0)
-                    
-
-
 
             self._check_pipe(len(wrtr))
 
@@ -256,18 +273,18 @@ class _TimerSocket:
                 self._vprint(f"An error was found with the socket. Resetting.")
                 time.sleep(5.0)
                 self.reset_socket()
-                
+
             self.check_connection()
 
 
-def _create_connection(address, port, pipe, queue, verbose, index):
+def _create_connection(address, port, pipe, queue, verbose, index, tst_state):
     """
     Starts up the connection and keeps it going in a loop until
     it closes
     :return:
     """
 
-    connection = _TimerSocket(address, port, pipe, queue, verbose, index)
+    connection = _TimerSocket(address, port, pipe, queue, verbose, index, tst_state)
 
     connection.run()
 
@@ -280,28 +297,52 @@ class TimerConnection:
                  address: str,
                  port: int,
                  queue: Queue,
+                 parent,
                  verbose: bool = False,
-                 index: int = -1):
+                 index: int = -1,
+                 test_active: bool = False):
         """
         Sets up a separate process for handling communications with the
         timer. Uses a Pipe to send commands to that process and to get
         data from the process.
         """
+        self.parent = parent
         self.pipe, child_pipe = Pipe(duplex=True)
         self.p = Process(target=_create_connection,
                          args=(address, port, child_pipe,
-                               queue, verbose, index))
+                               queue, verbose, index, test_active))
         self.p.start()
+        self.test_active = test_active
         self.index = index
         self.address = address
         self.port = port
         self.verbose = verbose
         self.index = index
         self.connected = self.is_connected(quick=False)
+        self.queue = queue
+        self.cal_constant = 0
 
     def _vprint(self, msg):
         if self.verbose:
             print(f"{message_color}rm_socket.TimerConnection: {msg} {normal_color}")
+
+    def set_test_active(self, state: bool):
+        if state:
+            self.pipe.send(_test_on_msg)
+        else:
+            self.pipe.send(_test_off_msg)
+        rtn_msg = self.pipe.recv()
+        if rtn_msg == _test_on_msg:
+            self.test_active = True
+        elif rtn_msg == _test_off_msg:
+            self.test_active = False
+        else:
+            self._vprint("Unable to successfully set the test state.")
+        return self.test_active
+
+    def send_calibration(self, cal: int):
+        msg = f"<cal {cal} >".encode('utf-8')
+        self.pipe.send(msg)
 
     def shutdown(self):
         self.pipe.send(_shutdown_msg)
@@ -311,7 +352,6 @@ class TimerConnection:
             f"{message_color}rm_socket.TimerConneciton: Waiting for connection {self.index} to close.{normal_color}")
         self.p.join()
         self.p.close()
-
 
     def _await_conf(self):
         msg = self.pipe.recv()
@@ -326,7 +366,7 @@ class TimerConnection:
                 try:
                     msg = self.pipe.recv()
                     if msg == _connection_success_msg:
-                        self.connected = True 
+                        self.connected = True
                     elif b"Error" in msg:
                         self.connected = False
                     self._vprint(msg)
@@ -334,18 +374,30 @@ class TimerConnection:
                     break
             return self.connected
         else:
-            self.pipe.send(_check_connection_msg)
-            self.connected = self._await_conf()
+            try:
+                self.pipe.send(_check_connection_msg)
+                self.connected = self._await_conf()
+            except BrokenPipeError:
+                self.connected = False
         return self.connected
 
     def reset_socket(self):
-        self.pipe.send(_socket_reset_msg)
+        try:
+            self.pipe.send(_socket_reset_msg)
+        except BrokenPipeError:
+            pass
 
     def send_reset(self):
         self.pipe.send(_reset_msg)
 
-    def send_stop(self):
-        self.pipe.send(_stop_counting)
+    def request_counts(self):
+        self.pipe.send(_resend_data_msg)
+
+    def send_test(self):
+        if self.test_active:
+            self.pipe.send(_test_msg)
+        else:
+            print("Not sending tests.")
 
     def new_connection(self, address, port):
         self.shutdown()
@@ -357,15 +409,33 @@ class TimerConnection:
         self.pipe, child_pipe = Pipe(duplex=True)
         self.p = Process(target=_create_connection,
                          args=(address, port, child_pipe,
-                               self.queue, self.verbose, self.index))
+                               self.queue, self.verbose, self.index,
+                               self.test_active))
         self.p.start()
         self.connected = self.is_connected(quick=False)
+
+    def get_average_count(self):
+        timer_comms = self.parent
+        rm_gui = timer_comms.parent
+        event = rm_gui.event
+        return event.get_lane_average_counts(self.index)
+
+    def get_cal(self):
+        return self.cal_constant
+
+    def suggest_cal(self):
+        timer_comms = self.parent
+        rm_gui = timer_comms.parent
+        event = rm_gui.event
+        my_avg = event.get_lane_average_counts(self.index)
+        whole_avg = event.get_average_counts()
+        return round(whole_avg - my_avg)
 
 
 class TimerComs:
 
     def __init__(self,
-                 parent: tk.Tk,
+                 parent,
                  addresses: List[str] = None,
                  hosts_file: str = None,
                  n_lanes: int = 4,
@@ -375,6 +445,7 @@ class TimerComs:
             raise ValueError("You must provide a list of hosts, or a hosts file when creating sockets.")
 
         self.q = Queue()
+        self.timer_window = None
         self.socket_frame = None
         self.n_lanes = n_lanes
         self.hosts = [str(x) for x in range(n_lanes)]
@@ -415,9 +486,6 @@ class TimerComs:
                 self._vprint(f"Error {repr(e)} encountered and ignored when attempting to shutdown.")
                 pass
 
-    def send_stop(self, idx):
-        self.comms[idx].send_stop()
-
     def get_hosts_and_ports(self, hosts_file):
         # TODO Add YAML parser
         with open(hosts_file) as fp:
@@ -454,7 +522,7 @@ class TimerComs:
 
     def set_up_comms(self, i):
         self._vprint(f"Setting up connection {i + 1} to {self.hosts[i]} on port {self.ports[i]}.")
-        out = TimerConnection(self.hosts[i], self.ports[i], self.q, self.verbose, i)
+        out = TimerConnection(self.hosts[i], self.ports[i], self.q, self, self.verbose, i)
         self._vprint(f"{i + 1} Connected.")
 
         return out
@@ -473,20 +541,20 @@ class TimerComs:
     def stop(self):
         self.connection_window_open = False
 
-    def connect_to_track_hosts(self, autoclose=False, reset=False):
+    def connect_to_track_hosts(self, reset=False):
         self.connection_window_open = True
 
         if reset:
             self.reset_sockets()
 
         if self.socket_frame is None:
-            popup = tk.Toplevel(self.parent)
+            popup = tk.Toplevel(self.parent.window)
             popup.wm_title("Connection To Track")
             popup.protocol("WM_DELETE_WINDOW", self.close_conn_window)
         else:
             popup = self.socket_frame
 
-        self.timer_window = TimerWindow(popup, self)
+        self.timer_window = TimerWindow(popup, self, lane_colors)
 
         while self.connection_window_open:
             self.timer_window.update()
@@ -494,7 +562,7 @@ class TimerComs:
         if self.socket_frame is None:
             popup.destroy()
 
-    def send_reset_to_track(self, accept=False):
+    def send_reset_to_track(self):
         self._vprint("Sending Reset to the Track")
         self.comms[self.reset_lane].send_reset()
 
@@ -514,25 +582,41 @@ class _TimerFrame:
         self.frame.pack(fill=tk.BOTH, expand=1)
         self.color = color
         self.idx = idx
-        
+
         self.timer = timer
         self.host = host
         self.port = port
-        
+
         self.port_text = tk.StringVar()
         self.port_text.set(f"{host}:{port}")
-        
+        self.tst_btn_text = tk.StringVar()
+        self.tst_btn_text.set("Test Button")
+        self.cal_text = tk.StringVar()
+        self.cal_text.set("0")
+
         self._left_section()
 
         self._middle_section()
- 
+
         self._right_section()
-        
+
+        self.toggle_testing()
+
     def _left_section(self):
         self.left_frame = tk.Frame(self.frame, bg=self.color)
         self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        label = tk.Label(self.left_frame, text=f"Lane {self.idx+1}", font=large_font, bg=self.color)
-        label.pack(pady=50)
+        label = tk.Label(self.left_frame, text=f"Lane {self.idx + 1}", font=large_font, bg=self.color)
+        label.pack(pady=7)
+
+        lane_avg = round(self.timer.get_average_count(), 2)
+        tk.Label(self.left_frame, text=f"Lane average count = {lane_avg}",
+                 font=small_font, bg=self.color).pack(pady=2)
+
+        
+        tk.Label(self.left_frame,
+        text=f"Lane calibration (current/suggested) = {self.timer.get_cal()} / {self.timer.suggest_cal()}",
+        font=small_font, bg=self.color).pack(pady=2)
+        
         self.status_text = tk.StringVar()
         self.status_label = tk.Label(self.left_frame, textvariable=self.status_text, bg=self.color,
                                      font=med_font)
@@ -541,7 +625,16 @@ class _TimerFrame:
             self.status_text.set(f"Connected")
         else:
             self.status_text.set(f"Disconnected")
-        
+
+        self.testing_button = tk.Button(self.left_frame, textvariable=self.tst_btn_text, width=20,
+                                        command=self.toggle_testing)
+        self.testing_button.pack(pady=5)
+        tst_frame = tk.Frame(self.left_frame, bg=self.color)
+        tst_frame.pack()
+        tk.Label(tst_frame, text="Testing Status", bg=self.color).pack(side=tk.LEFT)
+        self.tst_canvas = tk.Canvas(tst_frame, width=24, height=24, bg=self.color)
+        self.tst_canvas.pack(side=tk.LEFT)
+        self.tst_indicator = self.tst_canvas.create_oval(8, 7, 20, 20)
 
     def _middle_section(self):
         self.middle_frame = tk.Frame(self.frame, bg=self.color)
@@ -550,27 +643,51 @@ class _TimerFrame:
         label.pack(pady=5)
         self.rb = tk.Entry(self.middle_frame, textvariable=self.port_text)
         self.rb.pack(pady=10)
-        
-        label = tk.Label(self.middle_frame, text=f"Socket Controls", font=small_font,bg=self.color)
+
+        label = tk.Label(self.middle_frame, text=f"Socket Controls", font=small_font, bg=self.color)
         label.pack(pady=5)
         btn = tk.Button(self.middle_frame, text="Connect", command=self.update_connection)
-        btn.pack(pady=7)
+        btn.pack(pady=5)
         btn = tk.Button(self.middle_frame, text="Reset Connection", command=self.timer.reset_socket)
-        btn.pack(pady=7)
-        
-        
+        btn.pack(pady=5)
+
+
     def _right_section(self):
         self.right_frame = tk.Frame(self.frame, bg=self.color)
         self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-        
-        label = tk.Label(self.right_frame, text="Timer Commands", font=large_font, bg=self.color ).pack(pady=5)
 
-        tk.Button(self.right_frame, text="Reset Timer", command=self.timer.send_reset).pack(pady=30)
-        tk.Button(self.right_frame, text="Stop Timer", command=self.timer.send_stop).pack(pady=10)
+        tk.Label(self.right_frame, text="Timer Commands", font=large_font, bg=self.color).pack(pady=5)
+
+        tk.Button(self.right_frame, text="Reset Timer", command=self.timer.send_reset).pack(pady=10)
+        tk.Button(self.right_frame, text="Request Count", command=self.timer.request_counts).pack(pady=10)
+        # tk.Button(self.right_frame, text="Stop Timer", command=self.timer.send_stop).pack(pady=10)
+        tk.Button(self.right_frame, text="Update Cal", command=self.send_cal).pack(pady=10)
+        self.cal_etry = tk.Entry(self.right_frame,
+                                 textvariable=self.cal_text)
+        self.cal_etry.pack()
+
+    def send_cal(self):
+        cal_txt = self.cal_text.get()
+        try:
+            cal = int(cal_txt)
+        except ValueError:
+            cal = 0
+        self.timer.send_calibration(cal)
+
+    def toggle_testing(self):
+        """ Attempt to set the state, and get the result. """
+        cur_state = self.timer.test_active
+        tst_state = self.timer.set_test_active(not cur_state)
+        if tst_state:  # Testing on
+            self.tst_btn_text.set("Connection Test Off")
+            self.tst_canvas.itemconfig(self.tst_indicator, fill='#00e417')
+        else:
+            self.tst_btn_text.set("Connection Test On")
+            self.tst_canvas.itemconfig(self.tst_indicator, fill='#001c03')
 
     def update(self):
         self.check_status()
-        
+
     def check_status(self):
         if self.timer.is_connected(quick=True):
             self.rb.config(**_rb_connected)
@@ -641,13 +758,13 @@ class TimerWindow(MainWindow):
     def __init__(self,
                  outer_frame: tk.Frame,
                  timer_coms: TimerComs,
-                 lane_colors: List[str],
+                 lane_colors_: List[str],
                  verbose: bool = False
                  ):
 
         super().__init__(outer_frame)
 
-        self.lane_colors = lane_colors
+        self.lane_colors = lane_colors_
         self.outer_frame = outer_frame
         self.timer_coms = timer_coms
         self.verbose = verbose
@@ -661,7 +778,7 @@ class TimerWindow(MainWindow):
                                                 timer_coms.comms[i],
                                                 timer_coms.hosts[i],
                                                 timer_coms.ports[i],
-                                                lane_colors[i],
+                                                lane_colors_[i],
                                                 i))
 
         tk.Button(outer_frame, text="Reset All", command=timer_coms.reset_sockets).pack()
@@ -679,8 +796,8 @@ class TimerWindow(MainWindow):
     def _update(self):
         tcs = self.timer_coms
         if tcs.all_connected():
-            self.db.config(text="Connected. Press Reset to drop and reconnect.")
-        time_diff = time.clock_gettime(time.CLOCK_MONOTONIC) - self.last_time
+            self.db.config(text='Connected. Press Reset to drop and reconnect.')
+        # time_diff = time.clock_gettime(time.CLOCK_MONOTONIC) - self.last_time
 
         for i in range(tcs.n_lanes):
             tf = self.timer_frame[i]
@@ -712,4 +829,3 @@ class TimerWindow(MainWindow):
 
     def _tkraise(self):
         return
-

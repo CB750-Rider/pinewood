@@ -28,3 +28,4 @@ dist
 *.log
 *.tex
 temp
+*.ino

@@ -27,7 +27,8 @@ import tkinter as tk
 from queue import Queue
 from threading import Thread, Lock
 from typing import Iterable
-from rm_socket import _test_msg, _stop_counting
+from rm_socket import _test_msg, _get_cal
+from race_manager import clock_rate
 
 infile = "lane_hosts.csv"
 ready_msg = "<Ready to Race.>".encode('utf-8')
@@ -93,6 +94,7 @@ class Lane:
         self.reporting = None
         self.connection = None
         self.address = None
+        self.test_indicator = None
         self.queue = Queue(maxsize=2)
         self.host = ''
         self.port = ''
@@ -100,8 +102,10 @@ class Lane:
         self.check_button = None
         self.drop_button = None
         self.drop_requested = False
+        self.cal_text = None
+        self.calibration = 0
 
-    def add_lane_to_window(self, parent: tk.Widget):
+    def add_lane_to_window(self, parent):
         self.reporting = tk.BooleanVar()
         self.reporting.set(True)
         frame = tk.Frame(parent)
@@ -109,12 +113,16 @@ class Lane:
         self.check_button = tk.Checkbutton(frame, text="Lane {}".format(self.number)
                                            , variable=self.reporting)
         self.check_button.pack(side=tk.LEFT)
+        self.cal_text = tk.StringVar(value=f"{self.calibration}")
+        tk.Label(frame, textvariable=self.cal_text).pack(side=tk.RIGHT)
+        tk.Label(frame, text="Calibration: ").pack(side=tk.RIGHT)
         self.drop_button = tk.Button(frame, text="Drop", command=self.request_drop)
         self.drop_button.pack(side=tk.RIGHT)
         test_label = tk.Label(frame, text="Test Received")
         test_label.pack(side=tk.RIGHT)
         self.test_indicator = _TestIndicator(frame)
         self.test_indicator.pack(side=tk.RIGHT)
+
 
     def request_drop(self):
         self.drop_requested = True
@@ -216,6 +224,7 @@ class MainWindow:
         self.window.update_idletasks()
         for lane in self.lanes:
             lane.test_indicator.off()
+            lane.cal_text.set(f"{lane.calibration}")
 
     def activate_reset_button(self):
         self.reset_button.configure(command=race_reset)
@@ -255,8 +264,8 @@ def make_str(race_number):
     return ','.join(time_str), race_number + 1
 
 
-def set_host_and_port(lanes: Iterable[Lane], infile: str):
-    with open(infile) as fp:
+def set_host_and_port(lanes: Iterable[Lane], infile_: str):
+    with open(infile_) as fp:
         for line in fp:
             laneNumber, hostAddress, hostPort = line.split(',')
             li = int(laneNumber) - 1
@@ -267,10 +276,10 @@ def set_host_and_port(lanes: Iterable[Lane], infile: str):
 
 def race_reset():
     global race_ready, the_lanes
-    for lane in the_lanes:
+    for lane_ in the_lanes:
         try:
-            lane.connection.sendall(reset_msg)
-            lane.connection.sendall(ready_msg)
+            lane_.connection.sendall(reset_msg)
+            lane_.connection.sendall(ready_msg)
         except AttributeError:
             pass
     race_ready = True
@@ -278,10 +287,10 @@ def race_reset():
 
 def time_msg(mean=4.0):
     """Normally distributed random numbers around 4 seconds"""
-    racer_time = np.random.randn() * 0.1 + mean
+    racer_time = np.random.randn() * 0.002 + mean
     "Convert to counts"
     print("Time = {}".format(racer_time))
-    racer_time = np.array(racer_time * 2000.0).astype(np.int32)
+    racer_time = np.array(racer_time * clock_rate).astype(np.int32)
     print("Counts = {}".format(racer_time))
     time_message = "{}".format(racer_time).encode('utf-8')
     return time_message
@@ -335,22 +344,36 @@ if __name__ == "__main__":
         if conn is not None:
             window.activate_reset_button()
             if not race_ready:
+                ready_sockets = []
+                writy_sockets = []
                 try:
                     ready_sockets, writy_sockets, _ = select.select(conn, conn, [], 5.0)
                 except ValueError:
                     print("Do something.")
                 for rs in ready_sockets:
                     data = rs.recv(64).decode('utf-8')
+                    if len(data) == 0:
+                        continue
+                    s_idx = conn.index(rs)
+                    print(f"SOCKET {s_idx}: '{data}'")
                     if len(data) > 4:
                         if _test_msg.decode('utf-8') in data:
                             rs.sendall(_test_msg)
                             window.blink_test_light(rs)
+                        elif '<cal' in data:
+                            cc = data.split(' ')[1]
+                            cc = cc.split('>')[0]
+                            try:
+                                the_lanes[s_idx].calibration = int(cc)
+                            except ValueError:
+                                the_lanes[s_idx].calibration = 0
+                        elif _get_cal.decode('utf-8') in data:
+                            msg = f"<Calibration:{the_lanes[s_idx].calibration}>"
+                            rs.sendall(msg)
                         else:
-                            print(data)
+                            print(f"Unable to understand '{msg}'.")
                     if 'reset' in data:
                         race_reset()
-                    if _stop_counting.decode('utf-8') in data:
-                        rs.sendall(time_prefix + time_msg(10.0) + time_suffix)
             if len(writy_sockets) < len(conn):
                 print("A socket disconnected. We should restart")
                 for lane in the_lanes:
