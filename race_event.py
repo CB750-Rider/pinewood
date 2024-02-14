@@ -41,6 +41,7 @@ from typing import List
 from pdflatex import PDFLaTeX
 from typing import Iterable
 from copy import deepcopy
+from scipy.stats import rankdata
 
 default_heat_name = "No_Heat"
 
@@ -66,6 +67,8 @@ def next_car_number():
         i += 1
     return i
 
+def get_placements(counts):
+    return rankdata(counts, 'dense')
 
 # CLASS STUFF
 class Racer:
@@ -379,9 +382,6 @@ class Race:
     def is_empty(self, idx):
         return self.racers[idx].is_empty()
 
-    def get_placements(self, times):
-        return np.argsort(times) + 1
-
     def save_results(self, race_number, race_times, counts):
         # Post results to the current race number
         new_results = True
@@ -389,21 +389,21 @@ class Race:
             if rn == race_number:
                 self.times[idx] = deepcopy(race_times)
                 self.counts[idx] = deepcopy(counts)
-                self.placements[idx] = self.get_placements(race_times)
+                self.placements[idx] = get_placements(counts)
                 new_results = False
         if new_results:
             self.race_number.append(race_number)
             self.times.append(deepcopy(race_times))
             self.counts.append(deepcopy(counts))
-            self.placements.append(self.get_placements(race_times))
+            self.placements.append(get_placements(counts))
         # TODO Figure out if this next line is needed in all cases. LRB March 26 2022.
         self.current_race = len(self.race_number) - 1
 
     def set_current_race(self, idx):
         if idx <= 0:
             self.current_race = 0
-        elif idx >= len(self.race_times):
-            self.current_race = len(self.race_times) - 1
+        elif idx >= len(self.times):
+            self.current_race = len(self.times) - 1
         else:
             self.current_race = idx
 
@@ -434,13 +434,14 @@ class Race:
                    'accepted_result_idx': self.accepted_result_idx}
         else:
             self.set_current_race(self.accepted_result_idx)
+            placements = [x.tolist() for x in self.placements]
             out = {'planned_number': self.plan_number,
                    'entries': entries,
                    'accepted_result_idx': self.accepted_result_idx,
                    'times': self.times,
                    'counts': self.counts,
                    'index_of_race(s)_in_log': self.race_number,
-                   'placements': self.placements}
+                   'placements': placements}
         return out
 
     def get_racer_list(self, out=[]):
@@ -511,21 +512,27 @@ class Event:
         # Load the log file that gives what part of the race has
         # already run
         if log_file is not None:
-            self.race_log_file = open(os.devnull, 'w')
+            self.log_file_name = os.devnull
+            """ When we load in the previous races, the application will want to save 
+            the results to a log file. So, we open devnull for now.""" 
+            self.open_log_file()
+            #self.race_log_file = open(os.devnull, 'w')
             self.read_log_file(log_file)
-            self.race_log_file.close()
+            self.close_log_file()
 
-            # we will be recording race data as it comes in, so open
-            # the logfile for appending.
+            """ Now try and open the actual log file """
+            self.log_file_name = log_file
             try:
-                self.race_log_file = open(log_file, "a+")
+                self.open_log_file()
             except OSError:
                 print(f"Unable to open {log_file} for writing.")
+                self.log_file_name = os.devnull
+                self.open_log_file()
                 pass
         else:
             print("Logging disabled")
-            self.race_log_file = open("/dev/null", "w")
-            self.log_file_name = "/dev/null"
+            self.log_file_name = os.devnull
+            self.open_log_file()
 
     def create_empty_lane_heat(self,
                                ability_rank=100000000000000):
@@ -638,7 +645,7 @@ class Event:
             self.races.append(race)
         else:
             self.races.insert(location, race)
-
+    
     def remove_heat(self, heat=None, heat_name=None):
         removed = False
         if heat is None and heat_name is None:
@@ -708,6 +715,13 @@ class Event:
                 self.race_log_file.write(",Accepted\n");
             else:
                 self.race_log_file.write(",NA\n");
+        """Force a file buffer flush so that if we crash, we still get everything in the log. """
+        try:
+            self.close_log_file()
+            self.open_log_file()
+        except OSError:
+            self.log_file_name = os.devnull
+            self.open_log_file()
         race.save_results(self.current_race_log_idx, times, counts)
         if accept:
             self.accept_results(race, race_log_idx)
@@ -821,7 +835,13 @@ class Event:
     def close_log_file(self):
         if self.race_log_file:
             self.race_log_file.close()
-
+            
+    def open_log_file(self):        
+        if self.log_file_name == os.devnull:
+            self.race_log_file = open(self.log_file_name, "w")
+        else:
+            self.race_log_file = open(self.log_file_name, "a+")
+        
     def get_chips_for_race(self, race_number):
         chips = []
         if race_number < 0:
@@ -858,8 +878,10 @@ class Event:
                 count += 1
             except IndexError:
                 continue
-            
-        return sum/count
+        try:    
+            return sum/count
+        except ZeroDivisionError:
+            return 0
     
     def get_average_counts(self):
         sum = 0
@@ -896,7 +918,10 @@ class Event:
                         file_name='race_plan.yaml',
                         revised_plan=None):
         if revised_plan is None:
-            self.generate_race_plan()
+            try:
+                self.generate_race_plan()
+            except NotImplementedError: # Happens when we have a plan and results
+                pass
         else:
             self.adopt_revised_plan(revised_plan)
 
@@ -936,7 +961,9 @@ class Event:
         self.heats = new_heats
 
     def generate_race_plan(self):
-        new_plan = []
+        for race in self.races:
+            if race.accepted_result_idx >= 0:
+                raise NotImplementedError("Unable to alter a race plan that has existing results. Try re-running with a new log file.")
 
         """
         TODO Figure out how to add racers in the middle
@@ -1054,7 +1081,11 @@ class Event:
                 self.current_race = None
 
     def get_race_plan(self):
-        self.generate_race_plan()
+        try:
+            self.generate_race_plan()
+        except NotImplementedError: # Happens when we have already have race times that were accepted.
+            # We assume that whoever called the getter is okay with getting the existing plan.
+            pass
 
         out_list = []
         for idx, race in enumerate(self.races):

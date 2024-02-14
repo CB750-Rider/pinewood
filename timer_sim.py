@@ -367,13 +367,15 @@ if __name__ == "__main__":
                                 the_lanes[s_idx].calibration = int(cc)
                             except ValueError:
                                 the_lanes[s_idx].calibration = 0
+                            msg = f"<Calibration:{the_lanes[s_idx].calibration}>"
+                            rs.sendall(msg.encode('utf-8'))
                         elif _get_cal.decode('utf-8') in data:
                             msg = f"<Calibration:{the_lanes[s_idx].calibration}>"
-                            rs.sendall(msg)
+                            rs.sendall(msg.encode('utf-8'))
+                        elif 'reset' in data:
+                            race_reset()
                         else:
-                            print(f"Unable to understand '{msg}'.")
-                    if 'reset' in data:
-                        race_reset()
+                            print(f"Unable to understand '{data}'.")
             if len(writy_sockets) < len(conn):
                 print("A socket disconnected. We should restart")
                 for lane in the_lanes:

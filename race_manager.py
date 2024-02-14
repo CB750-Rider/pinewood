@@ -24,7 +24,7 @@ import queue
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog, IntVar
-from race_event import Event
+from race_event import Event, get_placements
 import argparse
 from rm_socket import TimerComs, normal_color, TimerWindow, MainWindow, _test_msg
 from results import ResultsWindow
@@ -339,7 +339,7 @@ class TrackStatusIndicator:
 
 
 class RaceTimes:
-    race_time_default = {"text": "0.000", "fg": "gray"}
+    race_time_default = {"text": "0.0", "fg": "gray"}
     placement_default = {"text": "Ready", "fg": "gray"}
     placement_settings = [{"text": "1st", "fg": "#ff9600", "bg": "#000000"},
                           {"text": "2nd", "fg": "#000000"},
@@ -381,7 +381,7 @@ class RaceTimes:
             if current_race.accepted_result_idx >= 0:  # show the accepted race
                 times = current_race.times[current_race.accepted_result_idx]
                 self.race_time_display = tk.Label(res_frm, bg=colors[idx],
-                                                  font=large_font, fg="#000000", text="{0:.3f}".format(times[idx]))
+                                                  font=large_font, fg="#000000", text="{0:.4f}".format(times[idx]))
             else:
                 self.race_time_display = tk.Label(res_frm, bg=colors[idx], font=large_font,
                                                   **self.race_time_default)
@@ -403,8 +403,8 @@ class RaceTimes:
         race_idx = rm_gui.times_column.race_selector.get_race_idx_from_selector()
         updated_counts = rm_gui.event.get_counts_for_race(race_idx)
         if updated_counts[self.idx]:
-            final_time = updated_counts[self.idx] / self.parent.parent.parent.clock_rate
-            self.race_time_display.config(text="{0:.3f}".format(final_time), fg='#000000')
+            final_time = np.round(updated_counts[self.idx] / self.parent.parent.parent.clock_rate, 4)
+            self.race_time_display.config(text="{0:.4f}".format(final_time), fg='#000000')
             return True
         else:
             self.race_time_display.config(self.race_time_default)
@@ -769,7 +769,7 @@ class RaceManagerGUI:
         self.running = False
         program_running = False
 
-    def update_race_display(self, new_race=True):
+    def update_race_display(self, new_race=True):        
         if self.times_column is None:
             return
         self.times_column.update(new_race=new_race)
@@ -888,8 +888,13 @@ class RaceManagerGUI:
             title="Select File Name",
             defaultextension=".log")
         if len(file_name) > 0:
-            self.log_file_name = file_name
+            if self.event.log_file_name == file_name:  # We are always saving
+                return
+            # Close the existing log file
             self.event.close_log_file()
+            # Change the file names
+            self.log_file_name = file_name
+            # Reload the event
             self.reload_event()
         else:
             print("Unable to save file.")
@@ -1038,6 +1043,7 @@ def accept_results():
 
 def find_race_count(data, s_idx, race_num, log_num):
     num = data.decode('utf-8').split(":")[1][:-1]
+    num = num.split('>')[0]
     count = int(num)
     print(
         f"{green}Track {s_idx + 1}: Count = {count}, Seconds = {float(count) / clock_rate}. Race:Log {race_num}:{log_num}{normal_color}")
@@ -1052,31 +1058,36 @@ def show_results():
     race_count = deepcopy(updated_counts)
 
     # Find which lanes were 1st, 2nd, 3rd, and 4th
-    ranks = np.argsort(race_count)
     race_times = rm_gui.displays['race_display'].times_column.race_times
-    place = 0
+    max_count = max(race_count) + 1
+    
+    # For empty lanes or cars that did not finish, give them the max time
+    for i, cnt in enumerate(race_count):
+        if cnt <= 0 or rm_gui.event.current_race.is_empty(i):
+            race_count[i] = max_count
+            race_times[i].placement = -1
+    
+    # Sort the results, accounting for ties    
+    ranks = get_placements(race_count) - 1 
+    
+    for i, rank in enumerate(ranks):
+        if race_count[i] == max_count:
+            continue
+        race_times[i].placement = rank
 
-    # TODO We need to handle ties.
-    for rank in ranks:
-        if race_count[rank] <= 0:
-            race_times[rank].placement = -1
-        elif rm_gui.event.current_race.is_empty(rank):
-            race_times[rank].placement = -1
-        elif race_count[rank] == 0:
-            race_times[rank].placement = -1
-        else:
-            race_times[rank].placement = place
-            place += 1
     rm_gui.update_race_display(new_race=False)
 
 
 def record_race_results(accept=False):
     global block_loading_previous_times, rm_gui
     if accept:
-        print("****ACCEPTING RESULTS*****\n\n")
+        print("****ACCEPTING RESULTS*****\n")
     race_log_idx = rm_gui.get_active_race_log_idx()  # This is the one the user said they want to accept
     race_idx = rm_gui.get_active_race_idx()  # This is the one the log says is accepted
-    race_counts = rm_gui.event.counts[race_log_idx]
+    try:
+        race_counts = rm_gui.event.counts[race_log_idx]
+    except IndexError: # Maybe we hit the button early?
+        return
     if rm_gui.event.current_race_log_idx is not race_log_idx:
         print("It looks like we are not current {} != {}.".format(
             rm_gui.event.current_race_log_idx, race_log_idx))
@@ -1121,7 +1132,7 @@ def send_reset_to_track(accept=False, send_reset=True):
     part of that."""
     global timer_coms, race_needs_written, rm_gui, race_running
     if send_reset:
-        timer_coms.send_reset_to_track(accept=accept)
+        timer_coms.send_reset_to_track()
     if race_needs_written:
         record_race_results(accept=accept)
         race_needs_written = False
@@ -1201,9 +1212,10 @@ if __name__ == "__main__":
                 cc = data.decode('utf-8').split(":")[-1]
                 cc = cc.split('>')[0]
                 try:
-                    rm_gui.timer_coms.comms[s_idx].cal_constant = int(cc)
+                    rm_gui.timer_coms.comms[s_idx].set_cal_constant(int(cc))
                 except ValueError:
                     pass 
+                rm_gui.displays['socket_display'].timer_frame[s_idx].set_left_cal_text()
             else:
                 if len(data) == 0:  # indicative of no data available
                     continue

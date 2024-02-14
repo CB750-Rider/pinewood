@@ -320,8 +320,30 @@ class TimerConnection:
         self.index = index
         self.connected = self.is_connected(quick=False)
         self.queue = queue
-        self.cal_constant = 0
+        self.cal_constant = self.load_cal()
 
+    def load_cal(self):
+        fname = f"cal_constant_{self.index}"
+        try:
+            with open(fname) as infile:
+                cc = infile.readline()
+            return int(cc)
+        except: 
+            return 0
+    
+    def set_cal_constant(self, cc):
+        self.cal_constant = cc
+        self.save_cal()
+        
+    def save_cal(self):
+        fname = f"cal_constant_{self.index}"
+        msg = str(self.cal_constant)
+        try:
+            with open(fname, "w") as outfile:
+                outfile.writelines(msg)
+        except Exception as e:
+            pass
+            
     def _vprint(self, msg):
         if self.verbose:
             print(f"{message_color}rm_socket.TimerConnection: {msg} {normal_color}")
@@ -343,6 +365,7 @@ class TimerConnection:
     def send_calibration(self, cal: int):
         msg = f"<cal {cal} >".encode('utf-8')
         self.pipe.send(msg)
+        #self.save_cal()
 
     def shutdown(self):
         self.pipe.send(_shutdown_msg)
@@ -352,6 +375,7 @@ class TimerConnection:
             f"{message_color}rm_socket.TimerConneciton: Waiting for connection {self.index} to close.{normal_color}")
         self.p.join()
         self.p.close()
+        self.save_cal()
 
     def _await_conf(self):
         msg = self.pipe.recv()
@@ -429,7 +453,7 @@ class TimerConnection:
         event = rm_gui.event
         my_avg = event.get_lane_average_counts(self.index)
         whole_avg = event.get_average_counts()
-        return round(whole_avg - my_avg)
+        return my_avg, whole_avg, round(whole_avg - my_avg)
 
 
 class TimerComs:
@@ -593,6 +617,10 @@ class _TimerFrame:
         self.tst_btn_text.set("Test Button")
         self.cal_text = tk.StringVar()
         self.cal_text.set("0")
+        self.left_cal_text2 = tk.StringVar()
+        self.left_cal_text2.set("Lane average count = 0.0")
+        self.left_cal_text = tk.StringVar()
+        self.left_cal_text.set("Lane Calibration (current/suggested) = 0 / 0")
 
         self._left_section()
 
@@ -601,6 +629,16 @@ class _TimerFrame:
         self._right_section()
 
         self.toggle_testing()
+    
+    def set_left_cal_text(self):
+        cal = self.timer.get_cal()
+        my_avg, group_avg, sgst_cal = self.timer.suggest_cal()
+        text=f"Calibration (current/suggested) = {cal} / {sgst_cal}"
+        self.left_cal_text.set(text)
+        text=f"Average Count = {my_avg}"
+        self.left_cal_text2.set(text)
+        #self.cal_text.set(f"{cal}")
+        
 
     def _left_section(self):
         self.left_frame = tk.Frame(self.frame, bg=self.color)
@@ -608,14 +646,13 @@ class _TimerFrame:
         label = tk.Label(self.left_frame, text=f"Lane {self.idx + 1}", font=large_font, bg=self.color)
         label.pack(pady=7)
 
-        lane_avg = round(self.timer.get_average_count(), 2)
-        tk.Label(self.left_frame, text=f"Lane average count = {lane_avg}",
+        tk.Label(self.left_frame, textvariable=self.left_cal_text2,
                  font=small_font, bg=self.color).pack(pady=2)
 
-        
-        tk.Label(self.left_frame,
-        text=f"Lane calibration (current/suggested) = {self.timer.get_cal()} / {self.timer.suggest_cal()}",
-        font=small_font, bg=self.color).pack(pady=2)
+
+        self.set_left_cal_text()
+        tk.Label(self.left_frame, textvariable=self.left_cal_text, font=small_font, 
+                 bg=self.color).pack(pady=2)
         
         self.status_text = tk.StringVar()
         self.status_label = tk.Label(self.left_frame, textvariable=self.status_text, bg=self.color,
@@ -690,6 +727,7 @@ class _TimerFrame:
 
     def check_status(self):
         if self.timer.is_connected(quick=True):
+            self.set_left_cal_text()
             self.rb.config(**_rb_connected)
             self.status_text.set(f"Connected")
             self.status_label.config(bg=self.color, fg='black')
@@ -813,6 +851,7 @@ class TimerWindow(MainWindow):
                 if tc.is_connected(quick=False):
                     self._vprint(f"Connection from {tf.host}:{tf.port} established.")
                     tf.rb.config(**_rb_flash)
+                    tf.send_cal()
                 else:
                     tf.rb.config(**_rb_disconnected)
                     time.sleep(0.1)
