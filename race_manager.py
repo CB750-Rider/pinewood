@@ -635,6 +635,9 @@ class RaceManagerGUI:
         self.window = tk.Tk()
         self.window.title("Pack 402 Pinewood Derby")
         self.window.geometry(self.window_size)
+        self.window.bind('<F11>', self.toggle_fullscreen)
+        self.window.bind('<Escape>', self.end_fullscreen)
+        self.fs_state = False
         if parent is None:
             self.parent = self.window
         else:
@@ -702,6 +705,16 @@ class RaceManagerGUI:
         self.next_frame = None
         self.switch_to('race_display')
 
+    def toggle_fullscreen(self, event=None):
+        self.fs_state = not self.fs_state
+        self.window.attributes("-fullscreen", self.fs_state)
+        return "break"
+    
+    def end_fullscreen(self, event=None):
+        self.fs_state = False 
+        self.window.attributes("-fullscreen", False)
+        return "break"
+    
     def mainloop(self):
         self.window.mainloop()
 
