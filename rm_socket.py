@@ -26,6 +26,7 @@ import time
 import select
 from multiprocessing import Queue, Process, Pipe
 import datetime
+import numpy as np
 
 message_color = "\033[94m"
 normal_color = "\033[0m"
@@ -452,8 +453,8 @@ class TimerConnection:
         rm_gui = timer_comms.parent
         event = rm_gui.event
         my_avg = event.get_lane_average_counts(self.index)
-        whole_avg = event.get_average_counts()
-        return my_avg, whole_avg, round(whole_avg - my_avg)
+        my_dev = event.get_lane_average_deviation(self.index)
+        return my_avg, my_dev
 
 
 class TimerComs:
@@ -632,7 +633,8 @@ class _TimerFrame:
     
     def set_left_cal_text(self):
         cal = self.timer.get_cal()
-        my_avg, group_avg, sgst_cal = self.timer.suggest_cal()
+        my_avg, sgst_cal = self.timer.suggest_cal()
+        sgst_cal = np.round(sgst_cal)
         text=f"Calibration (current/suggested) = {cal} / {sgst_cal}"
         self.left_cal_text.set(text)
         text=f"Average Count = {my_avg}"
@@ -819,19 +821,32 @@ class TimerWindow(MainWindow):
                                                 lane_colors_[i],
                                                 i))
 
-        tk.Button(outer_frame, text="Reset All", command=timer_coms.reset_sockets).pack()
-        tk.Button(outer_frame, text="Exit", command=timer_coms.close_conn_window).pack()
+        self.bottom_frame = tk.Frame(outer_frame).pack()
+        tk.Button(self.bottom_frame, text="Reset All", command=timer_coms.reset_sockets).pack(side=tk.LEFT)
+        tk.Button(self.bottom_frame, text="Exit", command=timer_coms.close_conn_window).pack(side=tk.RIGHT)
+        self.stats_text = tk.StringVar()
+        self.stats_text.set("")
+        tk.Label(self.bottom_frame, textvariable=self.stats_text).pack(side=tk.LEFT)
         self.last_time = time.clock_gettime(time.CLOCK_MONOTONIC) - 10.0
 
         if timer_coms.all_connected():
             for i in range(timer_coms.n_lanes):
                 self.timer_frame[i].rb.config(**{'fg': '#18ff00', 'bg': '#404040'})
 
+    def _set_stats_text(self):
+        rm_gui = self.timer_coms.parent
+        event = rm_gui.event
+        cr = rm_gui.clock_rate
+        mean, std = event.get_average_counts()
+        msg = f"Count standard deviation = {std}. Time standard deviation = {std/cr}."
+        self.stats_text.set(msg)
+        
     def _vprint(self, msg):
         if self.verbose:
             print(f"{message_color}rm_socket.TimerWindow: {msg} {normal_color}")
 
     def _update(self):
+        self._set_stats_text()
         tcs = self.timer_coms
         if tcs.all_connected():
             self.db.config(text='Connected. Press Reset to drop and reconnect.')

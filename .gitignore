@@ -29,3 +29,4 @@ dist
 *.tex
 temp
 *.ino
+cal_constant_*

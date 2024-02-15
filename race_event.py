@@ -864,6 +864,19 @@ class Event:
                 raise
         return chips
 
+    def get_lane_counts(self, li):
+        """ Go through the accepted results, and return all the counts for that lane."""
+        out = []
+        for race in self.races:
+            ai = race.accepted_result_idx
+            if race.is_empty(li) or ai < 0:
+                continue                
+            try:
+                out.append(race.counts[ai][li])
+            except IndexError:
+                continue
+        return out
+    
     def get_lane_average_counts(self, li):
         """ Go through the accepted results, and average up all
         the counts for lane li. """
@@ -882,15 +895,26 @@ class Event:
             return sum/count
         except ZeroDivisionError:
             return 0
+        
+    def get_lane_average_deviation(self, li):
+        counts = []
+        for i in range(self.n_lanes):
+            counts.append(self.get_lane_counts(i))
+        if len(counts[0]) == 0:
+            return 0, 0
+        mns = np.mean(counts, axis = 0)
+        counts = counts - mns
+        return -np.mean(counts[li,:])
     
     def get_average_counts(self):
-        sum = 0
-        count = 0
+        counts = []
         for li in range(self.n_lanes):
-            sum += self.get_lane_average_counts(li)
-            count += 1
-        return sum/count
-        
+            counts.append(self.get_lane_counts(li))
+        if len(counts[0]) == 0:
+            return 0, 0
+        mns = np.mean(counts, axis = 0)
+        counts = counts - mns
+        return np.mean(counts), np.std(counts)
         
     def goto_next_race(self):
         self.goto_race(self.current_race_idx + 1)

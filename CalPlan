@@ -1,0 +1,1492 @@
+heats:
+- ability_rank: 1
+  name: Lions
+  racers:
+  - car_name: Super Fast
+    car_number: 1
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Lion One
+    rank: Lion
+  - car_name: Tissue
+    car_number: 2
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Lion Two
+    rank: Lion
+  - car_name: Three Waves
+    car_number: 3
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Lion Three
+    rank: Lion
+  - car_name: Vanquishinator
+    car_number: 15
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Lion Four
+    rank: ''
+- ability_rank: 4
+  name: Wolves
+  racers:
+  - car_name: Batmobile
+    car_number: 4
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Wolf One
+    rank: Wolf
+  - car_name: Kinda Slow
+    car_number: 5
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Wolf Two
+    rank: Wolf
+  - car_name: Wowee
+    car_number: 12
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: New Wolf
+    rank: ''
+- ability_rank: 5
+  name: Tags
+  racers:
+  - car_name: Vanqush
+    car_number: 25
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Tag One
+    rank: ''
+  - car_name: The Key
+    car_number: 17
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Tag Two
+    rank: ''
+  - car_name: Flashing Bubbles
+    car_number: 18
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Tag Three
+    rank: ''
+  - car_name: Dragon
+    car_number: 19
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Tag Four
+    rank: ''
+- ability_rank: 7
+  name: Bears
+  racers:
+  - car_name: Snape Snap
+    car_number: 6
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Bear One
+    rank: Bear
+  - car_name: Bobo
+    car_number: 7
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Bear Two
+    rank: Bear
+  - car_name: Whisky Tango Foxtrot
+    car_number: 8
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Bear Three
+    rank: Bear
+  - car_name: Let's Go!!
+    car_number: 14
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Bear Four
+    rank: ''
+- ability_rank: 10
+  name: Webelos
+  racers:
+  - car_name: In Bed
+    car_number: 9
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Webelo One
+    rank: Webelo
+  - car_name: Giggity
+    car_number: 10
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Webelo Two
+    rank: Webelo
+  - car_name: Not Inappropriate
+    car_number: 11
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Webelo Three
+    rank: Webelo
+  - car_name: Carrot Salad
+    car_number: 20
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Webelows Four
+    rank: ''
+- ability_rank: 15
+  name: Adults
+  racers:
+  - car_name: 'Mustang '
+    car_number: 16
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Dad One
+    rank: ''
+  - car_name: Lambo
+    car_number: 21
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Dad Two
+    rank: ''
+  - car_name: Flashy
+    car_number: 22
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Mom One
+    rank: ''
+  - car_name: Block-O
+    car_number: 23
+    car_status:
+      notes: ''
+      passed_height:
+      - true
+      - less than 3 1/2"
+      passed_length:
+      - true
+      - less than 7"
+      passed_nose:
+      - true
+      - no notch
+      passed_underbody_clearance:
+      - true
+      - greater than 3/8"
+      passed_weight:
+      - true
+      - less than 5 oz.
+      passed_width:
+      - true
+      - less than 2 3/4"
+      questions:
+        made_this_year: true
+        no_bore_or_cone_for_the_wheel_hub: true
+        no_dome_on_outside_hub: true
+        no_graphite_paint_on_nail: true
+        no_liquid_lubricant: true
+        no_loose_materials: true
+        no_nail_groove: true
+        no_removal_of_wheel_tread: true
+        no_rounding_of_inside_wheel_edge: true
+        no_rounding_of_outside_wheel_edge: true
+        no_rounding_of_the_inside_wheel_hub: true
+        no_solid_axles: true
+        no_springs_or_shocks: true
+        no_wheel_bearings: true
+        no_wheel_reshaping: true
+        no_wheel_washers: true
+        use_kit_nail: true
+        use_official_wheel: true
+      wheel_base:
+      - true
+      - less than 4 3/4" (axle to axle)
+      wheel_diameter:
+      - true
+      - greater than 1.170"
+    name: Dad Three
+    rank: ''
+races:
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Lions
+    racer: Lion One
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Two
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Three
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Four
+  planned_number: 0
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Wolves
+    racer: Wolf One
+  - empty_lane: false
+    heat: Wolves
+    racer: Wolf Two
+  - empty_lane: false
+    heat: Wolves
+    racer: New Wolf
+  - empty_lane: false
+    heat: Tags
+    racer: Tag One
+  planned_number: 1
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Two
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Three
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Four
+  - empty_lane: false
+    heat: Bears
+    racer: Bear One
+  planned_number: 2
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Two
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Three
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Four
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo One
+  planned_number: 3
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo Two
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo Three
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelows Four
+  - empty_lane: false
+    heat: Adults
+    racer: Dad One
+  planned_number: 4
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Adults
+    racer: Dad Two
+  - empty_lane: false
+    heat: Adults
+    racer: Mom One
+  - empty_lane: false
+    heat: Adults
+    racer: Dad Three
+  - empty_lane: false
+    heat: Lions
+    racer: Lion One
+  planned_number: 5
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Two
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Three
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Four
+  - empty_lane: false
+    heat: Wolves
+    racer: Wolf One
+  planned_number: 6
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Wolves
+    racer: Wolf Two
+  - empty_lane: false
+    heat: Wolves
+    racer: New Wolf
+  - empty_lane: false
+    heat: Tags
+    racer: Tag One
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Two
+  planned_number: 7
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Three
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Four
+  - empty_lane: false
+    heat: Bears
+    racer: Bear One
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Two
+  planned_number: 8
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Three
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Four
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo One
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo Two
+  planned_number: 9
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo Three
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelows Four
+  - empty_lane: false
+    heat: Adults
+    racer: Dad One
+  - empty_lane: false
+    heat: Adults
+    racer: Dad Two
+  planned_number: 10
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Adults
+    racer: Mom One
+  - empty_lane: false
+    heat: Adults
+    racer: Dad Three
+  - empty_lane: false
+    heat: Lions
+    racer: Lion One
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Two
+  planned_number: 11
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Three
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Four
+  - empty_lane: false
+    heat: Wolves
+    racer: Wolf One
+  - empty_lane: false
+    heat: Wolves
+    racer: Wolf Two
+  planned_number: 12
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Wolves
+    racer: New Wolf
+  - empty_lane: false
+    heat: Tags
+    racer: Tag One
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Two
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Three
+  planned_number: 13
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Four
+  - empty_lane: false
+    heat: Bears
+    racer: Bear One
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Two
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Three
+  planned_number: 14
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Four
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo One
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo Two
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo Three
+  planned_number: 15
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelows Four
+  - empty_lane: false
+    heat: Adults
+    racer: Dad One
+  - empty_lane: false
+    heat: Adults
+    racer: Dad Two
+  - empty_lane: false
+    heat: Adults
+    racer: Mom One
+  planned_number: 16
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Adults
+    racer: Dad Three
+  - empty_lane: false
+    heat: Lions
+    racer: Lion One
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Two
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Three
+  planned_number: 17
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Lions
+    racer: Lion Four
+  - empty_lane: false
+    heat: Wolves
+    racer: Wolf One
+  - empty_lane: false
+    heat: Wolves
+    racer: Wolf Two
+  - empty_lane: false
+    heat: Wolves
+    racer: New Wolf
+  planned_number: 18
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Tags
+    racer: Tag One
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Two
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Three
+  - empty_lane: false
+    heat: Tags
+    racer: Tag Four
+  planned_number: 19
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Bears
+    racer: Bear One
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Two
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Three
+  - empty_lane: false
+    heat: Bears
+    racer: Bear Four
+  planned_number: 20
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo One
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo Two
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelo Three
+  - empty_lane: false
+    heat: Webelos
+    racer: Webelows Four
+  planned_number: 21
+- accepted_result_idx: -1
+  entries:
+  - empty_lane: false
+    heat: Adults
+    racer: Dad One
+  - empty_lane: false
+    heat: Adults
+    racer: Dad Two
+  - empty_lane: false
+    heat: Adults
+    racer: Mom One
+  - empty_lane: false
+    heat: Adults
+    racer: Dad Three
+  planned_number: 22
