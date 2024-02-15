@@ -635,7 +635,7 @@ class _TimerFrame:
         cal = self.timer.get_cal()
         my_avg, sgst_cal = self.timer.suggest_cal()
         sgst_cal = np.round(sgst_cal)
-        text=f"Calibration (current/change/suggested) = {cal} / {sgst_cal} / {sgst_cal + cal}"
+        text=f"Calibration (current/offset/suggested) = {cal} / {sgst_cal} / {sgst_cal + cal}"
         self.left_cal_text.set(text)
         text=f"Average Count = {my_avg}"
         self.left_cal_text2.set(text)
