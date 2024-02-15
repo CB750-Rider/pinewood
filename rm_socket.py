@@ -646,7 +646,7 @@ class _TimerFrame:
         self.left_frame = tk.Frame(self.frame, bg=self.color)
         self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         label = tk.Label(self.left_frame, text=f"Lane {self.idx + 1}", font=large_font, bg=self.color)
-        label.pack(pady=7)
+        label.pack(pady=3)
 
         tk.Label(self.left_frame, textvariable=self.left_cal_text2,
                  font=small_font, bg=self.color).pack(pady=2)
@@ -665,11 +665,11 @@ class _TimerFrame:
         else:
             self.status_text.set(f"Disconnected")
 
-        self.testing_button = tk.Button(self.left_frame, textvariable=self.tst_btn_text, width=20,
-                                        command=self.toggle_testing)
-        self.testing_button.pack(pady=5)
         tst_frame = tk.Frame(self.left_frame, bg=self.color)
         tst_frame.pack()
+        self.testing_button = tk.Button(tst_frame, textvariable=self.tst_btn_text, width=20,
+                                        command=self.toggle_testing)
+        self.testing_button.pack(side=tk.LEFT)
         tk.Label(tst_frame, text="Testing Status", bg=self.color).pack(side=tk.LEFT)
         self.tst_canvas = tk.Canvas(tst_frame, width=24, height=24, bg=self.color)
         self.tst_canvas.pack(side=tk.LEFT)
@@ -679,31 +679,31 @@ class _TimerFrame:
         self.middle_frame = tk.Frame(self.frame, bg=self.color)
         self.middle_frame.pack(side=tk.LEFT, fill=tk.Y, expand=True)
         label = tk.Label(self.middle_frame, text=f"Set Timer IPv4:Port", bg=self.color, font=med_font)
-        label.pack(pady=5)
+        label.pack(pady=1)
         self.rb = tk.Entry(self.middle_frame, textvariable=self.port_text)
-        self.rb.pack(pady=10)
+        self.rb.pack(pady=4)
 
         label = tk.Label(self.middle_frame, text=f"Socket Controls", font=small_font, bg=self.color)
-        label.pack(pady=5)
+        label.pack(pady=1)
         btn = tk.Button(self.middle_frame, text="Connect", command=self.update_connection)
-        btn.pack(pady=5)
+        btn.pack(pady=2)
         btn = tk.Button(self.middle_frame, text="Reset Connection", command=self.timer.reset_socket)
-        btn.pack(pady=5)
+        btn.pack(pady=2)
 
 
     def _right_section(self):
         self.right_frame = tk.Frame(self.frame, bg=self.color)
         self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-        tk.Label(self.right_frame, text="Timer Commands", font=large_font, bg=self.color).pack(pady=5)
+        tk.Label(self.right_frame, text="Timer Commands", font=large_font, bg=self.color).pack()
 
-        tk.Button(self.right_frame, text="Reset Timer", command=self.timer.send_reset).pack(pady=10)
-        tk.Button(self.right_frame, text="Request Count", command=self.timer.request_counts).pack(pady=10)
+        tk.Button(self.right_frame, text="Reset Timer", command=self.timer.send_reset).pack(pady=2)
+        tk.Button(self.right_frame, text="Request Count", command=self.timer.request_counts).pack(pady=2)
         # tk.Button(self.right_frame, text="Stop Timer", command=self.timer.send_stop).pack(pady=10)
-        tk.Button(self.right_frame, text="Update Cal", command=self.send_cal).pack(pady=10)
+        tk.Button(self.right_frame, text="Update Cal", command=self.send_cal).pack(pady=2)
         self.cal_etry = tk.Entry(self.right_frame,
                                  textvariable=self.cal_text)
-        self.cal_etry.pack()
+        self.cal_etry.pack(pady=2)
 
     def send_cal(self):
         cal_txt = self.cal_text.get()
@@ -810,8 +810,6 @@ class TimerWindow(MainWindow):
         self.verbose = verbose
 
         self.timer_frame = []
-        self.db = tk.Label(outer_frame, width=45)
-        self.db.pack()
 
         for i in range(timer_coms.n_lanes):
             self.timer_frame.append(_TimerFrame(outer_frame,
@@ -821,12 +819,15 @@ class TimerWindow(MainWindow):
                                                 lane_colors_[i],
                                                 i))
 
-        self.bottom_frame = tk.Frame(outer_frame).pack()
+        self.bottom_frame = tk.Frame(outer_frame)
+        self.bottom_frame.pack()
         tk.Button(self.bottom_frame, text="Reset All", command=timer_coms.reset_sockets).pack(side=tk.LEFT)
         tk.Button(self.bottom_frame, text="Exit", command=timer_coms.close_conn_window).pack(side=tk.RIGHT)
         self.stats_text = tk.StringVar()
         self.stats_text.set("")
-        tk.Label(self.bottom_frame, textvariable=self.stats_text).pack(side=tk.LEFT)
+        tk.Label(self.bottom_frame, textvariable=self.stats_text).pack(side=tk.RIGHT)
+        self.db = tk.Label(self.bottom_frame, width=45)
+        self.db.pack(side=tk.LEFT)
         self.last_time = time.clock_gettime(time.CLOCK_MONOTONIC) - 10.0
 
         if timer_coms.all_connected():

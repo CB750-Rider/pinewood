@@ -609,7 +609,8 @@ class RaceDisplay(MainWindow):
 
 
 class RaceManagerGUI:
-    window_size = "1850x1024"
+    # window_size = "1850x1024" Normal Screens
+    window_size = "1368x768" # ASUS Tablet
     lane_colors = ["#1167e8", "#e51b00", "#e5e200", "#7fd23c"]
     clock_rate = clock_rate
 
