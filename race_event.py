@@ -42,7 +42,9 @@ from pdflatex import PDFLaTeX
 from typing import Iterable
 from copy import deepcopy
 from scipy.stats import rankdata
+import pinewood_utils
 
+clock_rate = 4000.0
 default_heat_name = "No_Heat"
 
 mc_sheet_header = r"""\documentclass[12pt,a4paper]{article}
@@ -67,8 +69,8 @@ def next_car_number():
         i += 1
     return i
 
-def get_placements(counts):
-    return rankdata(counts, 'dense')
+def get_placements(times):
+    return rankdata(times, 'dense')
 
 # CLASS STUFF
 class Racer:
@@ -372,6 +374,7 @@ class Race:
         self.plan_number = number  # The number from the race plan
         self.race_number = []  # The race number(s) from the track recorder
         self.times = []
+        self.rankable_times = []
         self.counts = []
         self.placements = []
         self.current_race_ = 0
@@ -389,13 +392,19 @@ class Race:
             if rn == race_number:
                 self.times[idx] = deepcopy(race_times)
                 self.counts[idx] = deepcopy(counts)
-                self.placements[idx] = get_placements(counts)
+                # Properly calibrated, the track time standard deviation is just under 0.0005 seconds.
+                # So, we only rank based on scores down to 0.001 seconds.
+                rankable_times = [pinewood_utils.get_official_time(x, clock_rate) for x in counts]
+                self.rankable_times[idx] = deepcopy(rankable_times)
+                self.placements[idx] = get_placements(rankable_times)
                 new_results = False
         if new_results:
             self.race_number.append(race_number)
             self.times.append(deepcopy(race_times))
             self.counts.append(deepcopy(counts))
-            self.placements.append(get_placements(counts))
+            rankable_times = [pinewood_utils.get_official_time(x, clock_rate) for x in counts]
+            self.rankable_times.append(deepcopy(rankable_times))
+            self.placements.append(get_placements(rankable_times))
         # TODO Figure out if this next line is needed in all cases. LRB March 26 2022.
         self.current_race = len(self.race_number) - 1
 
@@ -407,6 +416,14 @@ class Race:
         else:
             self.current_race = idx
 
+    def get_results(self, idx=None):
+        if idx == None:
+            idx = self.current_race_
+        try:
+            return self.counts[idx], self.rankable_times[idx], self.placements[idx]
+        except IndexError:
+            return [None, ]*4, [None, ]*4, [None,]*4
+        
     def find_race_by_log_idx(self, race_log_idx):
         for jj, ii in enumerate(self.race_number):
             if ii == race_log_idx:
@@ -417,7 +434,7 @@ class Race:
         if i < 0:
             i = self.current_race
         for lane_idx, racer, time, count, placement in zip(range(self.n_lanes), self.racers,
-                                                           self.times[i], self.counts[i], self.placements[i]):
+                                                           self.rankable_times[i], self.counts[i], self.placements[i]):
             racer.post_result(lane_idx, self.race_number[i], self.plan_number,
                               time, count, placement)
         self.accepted_result_idx = i

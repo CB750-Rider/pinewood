@@ -24,13 +24,14 @@ import queue
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog, IntVar
-from race_event import Event, get_placements
+from race_event import Event, get_placements, clock_rate
 import argparse
 from rm_socket import TimerComs, normal_color, TimerWindow, MainWindow, _test_msg
 from results import ResultsWindow
 import registration
 from copy import deepcopy
 from tkinter import TclError
+import pinewood_utils
 
 # Strings to set terminal text color.
 green = "\033[92m"
@@ -61,7 +62,6 @@ large_font = ("Times", 25)
 program_running = True
 race_needs_written = False
 block_loading_previous_times = False
-clock_rate = 4000.0
 
 # GUI ELEMENTS
 """ These classes are for the different GUI portions. They are in a 
@@ -380,8 +380,9 @@ class RaceTimes:
             current_race = parent.event.current_race
             if current_race.accepted_result_idx >= 0:  # show the accepted race
                 times = current_race.times[current_race.accepted_result_idx]
+                official_times = [np.round(x,3) for x in times]
                 self.race_time_display = tk.Label(res_frm, bg=colors[idx],
-                                                  font=large_font, fg="#000000", text="{0:.4f}".format(times[idx]))
+                                                  font=large_font, fg="#000000", text="{0:.3f}".format(official_times[idx]))
             else:
                 self.race_time_display = tk.Label(res_frm, bg=colors[idx], font=large_font,
                                                   **self.race_time_default)
@@ -398,22 +399,26 @@ class RaceTimes:
     def reset_race_time_display(self):
         self.race_time_display.config(self.race_time_default)
 
-    def update_race_time_display(self):
+    def update_race_time_display(self, time=None, count=None):
         global rm_gui
-        race_idx = rm_gui.times_column.race_selector.get_race_idx_from_selector()
-        updated_counts = rm_gui.event.get_counts_for_race(race_idx)
-        if updated_counts[self.idx]:
-            final_time = np.round(updated_counts[self.idx] / self.parent.parent.parent.clock_rate, 4)
-            self.race_time_display.config(text="{0:.4f}".format(final_time), fg='#000000')
+        if time is None:
+            if count is None:
+                race_idx = rm_gui.times_column.race_selector.get_race_idx_from_selector()
+                updated_counts = rm_gui.event.get_counts_for_race(race_idx)
+                count = updated_counts[self.idx]
+            time  = pinewood_utils.get_official_time(count, clock_rate)
+        if count:
+            self.race_time_display.config(text="{0:.3f}".format(time), fg='#000000')
             return True
         else:
             self.race_time_display.config(self.race_time_default)
             self.reset_placement_display()
             return False
 
-    def update_placement_display(self):
-        global placement_displays
+    def update_placement_display(self, placement=None):
         rm_gui.times_column.race_selector.get_race_idx_from_selector()
+        if placement is not None:
+            self.placement=placement-1
         if self.placement >= 0:
             self.placement_display.config({"bg": self.colors[self.idx]})
             self.placement_display.config(self.placement_settings[self.placement])
@@ -422,7 +427,6 @@ class RaceTimes:
             self.placement_display.config(self.placement_default)
 
     def reset_placement_display(self):
-        global placement_displays
         self.placement_display.config({"bg": self.colors[self.idx]})
         self.placement_display.config(self.placement_default)
 
@@ -469,11 +473,11 @@ class TimesColumn:
     def update_track_status_indicator(self, idx, new_race=True):
         self.race_times[idx].status_indicator.update(new_race=new_race)
 
-    def update(self, new_race=True):
-        for rt in self.race_times:
+    def update(self, counts, times, placements, new_race=True):
+        for idx, rt in enumerate(self.race_times):
             rt.status_indicator.update(new_race=new_race)
-            if rt.update_race_time_display():
-                rt.update_placement_display()
+            if rt.update_race_time_display(time=times[idx], count=counts[idx]):
+                rt.update_placement_display(placement=placements[idx])
 
     def reset_race_time_display(self, idx):
         self.race_times[idx].reset_race_time_display()
@@ -786,7 +790,8 @@ class RaceManagerGUI:
     def update_race_display(self, new_race=True):        
         if self.times_column is None:
             return
-        self.times_column.update(new_race=new_race)
+        counts, times, placements = self.event.current_race.get_results()
+        self.times_column.update(counts, times, placements, new_race=new_race)
 
         race_idx = rm_gui.event.current_race_idx
         self.racing_column.update(rm_gui.event.get_chips_for_race(race_idx), race_idx)
@@ -1080,9 +1085,11 @@ def show_results():
         if cnt <= 0 or rm_gui.event.current_race.is_empty(i):
             race_count[i] = max_count
             race_times[i].placement = -1
+            
+    times = [pinewood_utils.get_official_time(x, clock_rate) for x in race_count]
     
     # Sort the results, accounting for ties    
-    ranks = get_placements(race_count) - 1 
+    ranks = get_placements(times) - 1 
     
     for i, rank in enumerate(ranks):
         if race_count[i] == max_count:

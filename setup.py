@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import setuptools
+from setuptools import Extension
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -34,5 +35,10 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
-    install_requires=['numpy','tk','pdflatex','tksheet']
+    install_requires=['numpy','tk','pdflatex','tksheet'],
+    ext_modules=[
+        Extension(
+            name="pinewood_utils",
+            sources=["pinewood_utils.c"],)
+    ],
 )
