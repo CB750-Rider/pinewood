@@ -35,7 +35,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
-    install_requires=['numpy','tk','pdflatex','tksheet'],
+    install_requires=['numpy','tk','pdflatex','tksheet','pyyaml','scipy'],
     ext_modules=[
         Extension(
             name="pinewood_utils",

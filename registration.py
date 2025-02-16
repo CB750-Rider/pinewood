@@ -134,6 +134,11 @@ class RegistrationWindow(MainWindow):
         out_file = filedialog.asksaveasfilename(defaultextension='.pdf')
         self.event.print_plan_mc_sheet(out_file)
 
+    def renumber_racers(self):
+        raise NotImplementedError("You need to get this working.")
+        self.event.renumber_racers()
+        self.racer_list.set_racers_from_heat(-1)
+
     def save(self):
         self.check_revised_plan()
         self.event.print_plan_yaml(self.out_file_name,
@@ -193,7 +198,7 @@ class RegistrationWindow(MainWindow):
     def set_heat_pane(self):
         self.heat_list.update_heat_list()
 
-    def get_racer_by_index(self, index):
+    def get_racer_by_index(self, index) -> Racer:
         heat_index = self.heat_list.get_selected_heat_index()
         if heat_index == -1:
             " This is the trickier part "
@@ -388,12 +393,12 @@ class RacerDialog:
         if len(car_name) > 0:
             self.racer.car_name = car_name
         try:
+            number = int(self.car_number_field.get())
             self.racer.set_car_number(int(self.car_number_field.get()))
         except ValueError:
-            error_text = tk.Label(self.hidden_frame,
-                                  text="Unable to set the car number. Is that number taken?",
-                                  fg='red',
-                                  bg='black')
+            # Reassign the other racer automatically
+            self.parent.event.get_racer(car_number=number).set_car_number()
+            self.racer.set_car_number(number)
         self.car_status['notes'] = self.notes.get(1.0, tk.END)
         for key in self.racer.car_status.keys():
             if key == 'questions' or key == 'notes':
@@ -518,6 +523,11 @@ class RacerList:
         check_plan = tk.Button(self._outer_frame, text="Check Plan",
                                font=("Serif", 18),
                                command=self.parent.check_revised_plan)
+        check_plan.pack(fill=tk.X)
+
+        check_plan = tk.Button(self._outer_frame, text="Renumber",
+                               font=("Serif", 18),
+                               command=self.parent.renumber_racers)
         check_plan.pack(fill=tk.X)
 
         self.set_racers_from_heat(-1)
@@ -709,27 +719,46 @@ class RaceList:
                                     "arrowkeys",
                                     "right_click_popup_menu",
                                     "rc_select",
-                                    "rc_insert_row",
-                                    "rc_delete_row",
                                     "copy",
                                     "cut",
                                     "paste",
                                     "delete",
                                     "undo",
-                                    "edit_cell"))
+                                    ))
 
+        self.sheet.popup_menu_add_command(
+            "Edit Racer",
+            self._edit_racer_from_sheet,
+            index_menu = False,
+            header_menu = False,
+            empty_space_menu = False,
+        )
         self.sheet_data = self.sheet.set_sheet_data(
             self.parent.event.get_race_plan()
         )
 
         self.highlighted_cells = []
 
-    def load_race_plan(self):
-        race_plan = self.parent.event.get_race_plan()
-        self.sheet_data = self.sheet.set_sheet_data(race_plan)
+    def _edit_racer_from_sheet(self):
+        current_selection = self.sheet.get_currently_selected()
+        if current_selection:
+            box = (current_selection.row, current_selection.column)
+            data =self.sheet[box].data
+            try:
+                racer_num = int(data.split()[0])
+            except ValueError:
+                return
+            racer = self.parent.event.get_racer(car_number=racer_num)
+            RacerDialog(self.parent, racer=racer)
 
-    def remove_highlighting(self):
-        self.sheet.dehighlight_cells(row='all')
+    def count_races(self, racer):
+        count = 0
+        cell_str = racer.cell_str()
+        for ri, row in enumerate(self.sheet_data):
+            for ci, entry in enumerate(row):
+                if entry == cell_str:
+                    count += 1
+        return count
 
     def highlight_racer(self, racer):
         cell_str = racer.cell_str()
@@ -740,14 +769,13 @@ class RaceList:
                                                bg="#ed4337", fg="white")
         self.sheet.redraw()
 
-    def count_races(self, racer):
-        count = 0
-        cell_str = racer.cell_str()
-        for ri, row in enumerate(self.sheet_data):
-            for ci, entry in enumerate(row):
-                if entry == cell_str:
-                    count += 1
-        return count
+    def load_race_plan(self):
+        race_plan = self.parent.event.get_race_plan()
+        self.sheet_data = self.sheet.set_sheet_data(race_plan)
+
+    def remove_highlighting(self):
+        self.sheet.dehighlight_cells(row='all')
+
 
 
 class SaveWindow:

@@ -62,6 +62,15 @@ mc_table_footer = r"""\end{tabular}
 
 active_car_numbers = [0, 13]
 
+def _remove_car_number(number: int):
+    global active_car_numbers
+    if number == 13 or number < 1:
+        return
+    try:
+        idx = active_car_numbers.index(number)
+        active_car_numbers.pop(idx)
+    except AttributeError:
+        pass
 
 def next_car_number():
     i = 1
@@ -76,14 +85,14 @@ def get_placements(times):
 class Racer:
 
     def __init__(self,
-                 car_number=0,
-                 name="No_Name",
-                 rank="No_Rank",
-                 car_name="No_Car_Name",
-                 heat_name=default_heat_name,
-                 heat_index=-1,
-                 n_lanes=4,
-                 car_status=None):
+                 car_number: int = None,
+                 name: str="No_Name",
+                 rank: str="No_Rank",
+                 car_name: str="No_Car_Name",
+                 heat_name: str=default_heat_name,
+                 heat_index:int=-1,
+                 n_lanes:int=4,
+                 car_status: dict=None):
         self.name = name
         self.rank = rank
         self.car_name = car_name
@@ -95,14 +104,13 @@ class Racer:
         self.race_plan_nums = np.zeros(self.n_lanes)
         self.race_log_nums = np.zeros(self.n_lanes)
         self.race_positions = np.zeros(self.n_lanes)
-        if car_number > 0:
-            self.set_car_number(car_number)
-        elif heat_name == "Empty":
+        if heat_name == "Empty":
             self._car_number = 0
         elif heat_name == "No_Heat":
             self._car_number = -1
         else:
-            self.set_car_number()
+            self._car_number = 0
+            self.set_car_number(car_number)
         self.hist = {}
         if car_status is None:
             self.car_status = {
@@ -199,25 +207,26 @@ class Racer:
         self.heat_name = heat_name
         self.heat_index = heat_index
 
+
+
     def set_car_number(self, number: int = None):
         global active_car_numbers
+        # Handle the case where we didn't get a number to work with
         if number is None:
-            self._car_number = next_car_number()
+            new_number = next_car_number()
+            _remove_car_number(self._car_number)
+            self._car_number = new_number
             active_car_numbers.append(self._car_number)
             return
-        try:
-            if number == self._car_number:
-                return
-        except AttributeError:
-            pass
+        # If we already have this number, do nothing
+        if number == self._car_number:
+            return
+        # If this number is already taken, just pick another one
         if number in active_car_numbers:
             self.set_car_number()
             raise ValueError("Unable to set the car's number to one that is already in use.")
-        try:
-            idx = active_car_numbers.index(self._car_number)
-            active_car_numbers.pop(idx)
-        except AttributeError:
-            pass
+        # Set the car's number to this number
+        _remove_car_number(self._car_number)
         self._car_number = number
         active_car_numbers.append(number)
 
@@ -756,6 +765,18 @@ class Event:
             return [0] * self.n_lanes
         else:
             return self.counts[race_idx]
+
+    def get_racer(self, car_number: int = None) -> Racer:
+        """
+        Returns a racer with the indicated parameters. So far, it only supports car number, but thats all I need it for.
+        :param car_number:
+        :return:
+        """
+        for heat in self.heats:
+            for racer in heat.racers:
+                if racer.get_car_number() == car_number:
+                    return racer
+        return None
 
     def set_counts_for_race(self, lane_idx, count):
         while len(self.counts) <= self.current_race_log_idx:
